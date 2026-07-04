@@ -44,6 +44,7 @@ build/
 Build/
 build-*/
 .vs/
+MeshRendererDX12/
 
 # CMake generated files
 CMakeFiles/
