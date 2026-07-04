@@ -1,0 +1,11 @@
+Model Information:
+* title:	Cube Transparent Artistic Reference
+* source:	https://sketchfab.com/3d-models/cube-transparent-artistic-reference-0987e9b11bda4f3589dceb94bd1e029b
+* author:	dgscott922 (https://sketchfab.com/dgscott922)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Cube Transparent Artistic Reference" (https://sketchfab.com/3d-models/cube-transparent-artistic-reference-0987e9b11bda4f3589dceb94bd1e029b) by dgscott922 (https://sketchfab.com/dgscott922) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

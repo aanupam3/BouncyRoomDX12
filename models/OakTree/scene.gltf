@@ -1,0 +1,467 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 10873,
+      "max": [
+        10.766979217529297,
+        15.414839744567871,
+        4.316710472106934
+      ],
+      "min": [
+        -9.48669719696045,
+        -10.312439918518066,
+        -16.58332061767578
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 130476,
+      "componentType": 5126,
+      "count": 10873,
+      "max": [
+        0.9997808933258057,
+        0.99906325340271,
+        0.999945878982544
+      ],
+      "min": [
+        -0.705598771572113,
+        -0.9393083453178406,
+        -0.6637634634971619
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 10873,
+      "max": [
+        0.9998821020126343,
+        0.9999201893806458,
+        0.9982808232307434,
+        1.0
+      ],
+      "min": [
+        -0.9998588562011719,
+        -0.9999621510505676,
+        -0.9986492395401001,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 10873,
+      "max": [
+        0.9577843546867371,
+        1.0
+      ],
+      "min": [
+        0.05628730729222298,
+        0.0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 24498,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 260952,
+      "componentType": 5126,
+      "count": 3381,
+      "max": [
+        13.110264778137207,
+        17.291179656982422,
+        24.829559326171875
+      ],
+      "min": [
+        -11.442774772644043,
+        -16.290884017944336,
+        0.018652215600013733
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 301524,
+      "componentType": 5126,
+      "count": 3381,
+      "max": [
+        0.9997812509536743,
+        0.9988277554512024,
+        0.999182939529419
+      ],
+      "min": [
+        -0.9978015422821045,
+        -0.9998389482498169,
+        -0.9993456602096558
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 173968,
+      "componentType": 5126,
+      "count": 3381,
+      "max": [
+        0.9998663663864136,
+        0.9999321103096008,
+        0.9985361099243164,
+        1.0
+      ],
+      "min": [
+        -0.9996111392974854,
+        -0.9999584555625916,
+        -0.9989719390869141,
+        -1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 86984,
+      "componentType": 5126,
+      "count": 3381,
+      "max": [
+        0.9896050691604614,
+        0.9969857931137085
+      ],
+      "min": [
+        0.0006711896858178079,
+        0.0006711896858178079
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 114032,
+      "componentType": 5126,
+      "count": 3381,
+      "max": [
+        0.9896050691604614,
+        0.9969857931137085
+      ],
+      "min": [
+        0.0006711896858178079,
+        0.0006711896858178079
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 141080,
+      "componentType": 5126,
+      "count": 3381,
+      "max": [
+        0.9896050691604614,
+        0.9969857931137085
+      ],
+      "min": [
+        0.0006711896858178079,
+        0.0006711896858178079
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 97992,
+      "componentType": 5125,
+      "count": 13530,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "Maple (https://sketchfab.com/aaloktrolllol)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/oak-tree-game-ready-2f4ae6b907fd4741abda5d1b71c83b10",
+      "title": "Oak Tree | Game Ready"
+    },
+    "generator": "Sketchfab-12.65.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 152112,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 168128,
+      "byteOffset": 152112,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 342096,
+      "byteOffset": 320240,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 228064,
+      "byteOffset": 662336,
+      "byteStride": 16,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 890400,
+      "uri": "scene.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "textures/leaf_baseColor.png"
+    },
+    {
+      "uri": "textures/leaf_normal.png"
+    },
+    {
+      "uri": "textures/Trunk_baseColor.png"
+    },
+    {
+      "uri": "textures/Trunk_metallicRoughness.png"
+    },
+    {
+      "uri": "textures/Trunk_normal.png"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "leaf",
+      "normalTexture": {
+        "index": 1
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0
+        },
+        "metallicFactor": 0.0
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "Trunk",
+      "normalTexture": {
+        "index": 4
+      },
+      "occlusionTexture": {
+        "index": 3
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 2
+        },
+        "metallicFactor": 0.0,
+        "metallicRoughnessTexture": {
+          "index": 3
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Canopy_leaf_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TANGENT": 2,
+            "TEXCOORD_0": 3
+          },
+          "indices": 4,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "Trunk_Trunk_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 6,
+            "POSITION": 5,
+            "TANGENT": 7,
+            "TEXCOORD_0": 8,
+            "TEXCOORD_1": 9,
+            "TEXCOORD_2": 10
+          },
+          "indices": 11,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    { 
+      "children": [
+        1
+      ],
+      "matrix": [
+        1.0, 
+        0.0,
+        0.0,
+        0.0,
+        0.0, 
+        0.0,
+        -1.0,
+        0.0,
+        0.0, 
+        1.0, 
+        0.0,
+        0.0,
+        0.0, 
+        0.0, 
+        0.0,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        0.01,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.01,
+        0.0,
+        0.0,
+        -0.01,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "99ad2b699d214e81a6c52c0b659cd205.fbx"
+    },
+    {
+      "children": [
+        3,
+        5
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4
+      ],
+      "matrix": [
+        96.2540862016919,
+        121.69889730943676,
+        32.042611215962154,
+        0.0,
+        24.004113053907787,
+        21.845456440104176,
+        -155.07668502973488,
+        0.0,
+        -123.53602776846492,
+        99.0674123340976,
+        -5.16647577198939,
+        0.0,
+        -847.64892578125,
+        1706.6995849609375,
+        439.7239685058594,
+        1.0
+      ],
+      "name": "Canopy"
+    },
+    {
+      "mesh": 0,
+      "name": "Canopy_leaf_0"
+    },
+    {
+      "children": [
+        6
+      ],
+      "matrix": [
+        100.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0,
+        -100,
+        0.0,
+        0.0,
+        100,
+        0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Trunk"
+    },
+    {
+      "mesh": 1,
+      "name": "Trunk_Trunk_0"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    }
+  ]
+}

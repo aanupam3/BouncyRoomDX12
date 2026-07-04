@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ProjectOutputs>
+    <ProjectOutput>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\MeshRendererDX12.exe</FullPath>
+    </ProjectOutput>
+  </ProjectOutputs>
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\Object_0_PixelShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\Object_0_VertexShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\Canopy_leaf_0_PixelShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\Canopy_leaf_0_VertexShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\Trunk_Trunk_0_PixelShader.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\AdiEngineDevelopment\MeshRendererDX12\Trunk_Trunk_0_VertexShader.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
+  <SatelliteDlls />
+  <NonRecipeFileRefs />
+</Project>
