@@ -38,6 +38,7 @@
 *.exe
 *.out
 *.app
+*.cso
 
 # Build directories
 build/
