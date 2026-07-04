@@ -32,24 +32,29 @@ Model::~Model()
 	for (int meshIndex = 0; meshIndex < m_meshes.size(); meshIndex++)
 	{
 		Mesh* mesh = m_meshes[meshIndex];
-		for (int textureIndex = 0; textureIndex < mesh->Textures.size(); textureIndex++)
+		for (int i = 0; i < mesh->Primitives.size(); i++)
 		{
-			Texture* texture = mesh->Textures.at(textureIndex);
-			SAFE_RELEASE(texture->GPUResource);
+			MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+			for (int textureIndex = 0; textureIndex < meshPrimitive->Textures.size(); textureIndex++)
+			{
+				Texture* texture = meshPrimitive->Textures.at(textureIndex);
+				SAFE_RELEASE(texture->GPUResource);
 
-			stbi_image_free(texture->PixelData);
-			texture->PixelData = nullptr;
-			delete(texture);
+				stbi_image_free(texture->PixelData);
+				texture->PixelData = nullptr;
+				delete(texture);
+			}
+
+			meshPrimitive->VertexBufferViews.clear();
+			//delete(mesh->VertexBufferViews);
+
+			SAFE_RELEASE(meshPrimitive->MainShaderVisibleDescriptorHeap);
+
+
+			meshPrimitive->Textures.clear();
 		}
 
-		mesh->VertexBufferViews.clear();
-		//delete(mesh->VertexBufferViews);
-
-		SAFE_RELEASE(mesh->MainShaderVisibleDescriptorHeap);
-		SAFE_RELEASE(mesh->WVPMatrixGPUResource)
-
-			mesh->Textures.clear();
-
+		SAFE_RELEASE(mesh->WVPMatrixGPUResource);
 		delete(mesh);
 	}
 	m_meshes.clear();
@@ -95,6 +100,14 @@ void Model::SetMeshes()
 		Mesh* mesh = new Mesh();
 		mesh->Name = m_modelJson->meshes[meshIndex].name;
 		m_meshes.push_back(mesh);
+
+		UINT numMeshPrimitives = m_modelJson->meshes[meshIndex].primitives.size();
+		for(UINT primitiveIndex = 0; primitiveIndex < numMeshPrimitives; primitiveIndex++)
+		{
+			MeshPrimitive* meshPrimitive = new MeshPrimitive();
+			mesh->Primitives.push_back(meshPrimitive);
+		}
+
 		SetMeshVertexBufferViews(meshIndex);
 		SetMeshIndexBufferView(meshIndex);
 		SetMeshTextures(meshIndex);
@@ -105,141 +118,157 @@ void Model::SetMeshes()
 void Model::SetMeshVertexBufferViews(int meshIndex)
 {
 	Mesh* mesh = m_meshes[meshIndex];
-	std::vector<D3D12_VERTEX_BUFFER_VIEW>& meshVertexBufferViews = mesh->VertexBufferViews;
 
-	nlohmann::json attributes = m_modelJson->meshes[meshIndex].primitives[0].attributes;
-	UINT numAttributes = static_cast<UINT>(attributes.size());
-
-	// attributeName is the key, accessorIndex is the value
-	int attributeIndex = 0;
-	mesh->AttributeNames.resize(numAttributes);
-	for (auto& [attributeName, accessorIndex] : attributes.items())
+	for (UINT primitiveIndex = 0; primitiveIndex < mesh->Primitives.size(); primitiveIndex++)
 	{
-		ModelGLTF::Accessor attributeAccessor = m_modelJson->accessors[accessorIndex.get<int>()];
-		ModelGLTF::BufferView attributeBufferViewInfo = m_modelJson->bufferViews[attributeAccessor.bufferView];
+		MeshPrimitive* meshPrimitive = mesh->Primitives[primitiveIndex];
+		std::vector<D3D12_VERTEX_BUFFER_VIEW>& meshPrimitiveVBVs = meshPrimitive->VertexBufferViews;
 
-		D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
-		vertexBufferView.BufferLocation = ModelBinResource->GetGPUVirtualAddress() + attributeAccessor.byteOffset + attributeBufferViewInfo.byteOffset;
-		vertexBufferView.SizeInBytes = attributeAccessor.count * attributeBufferViewInfo.byteStride;
-		vertexBufferView.StrideInBytes = attributeBufferViewInfo.byteStride; // size of each vertex buffer position attribute
-		meshVertexBufferViews.push_back(vertexBufferView);
-		
-		/*std::cout << "MeshIndex " << meshIndex << ", BufferView " << attributeName << ":\n"
-		<< "Offset: " << vertexBufferView.BufferLocation << "\n"
-		<< "Size: " << vertexBufferView.SizeInBytes << "\n"
-		<< "Stride: " << vertexBufferView.StrideInBytes << "\n";*/
-		
-		mesh->AttributeNames[attributeIndex] = attributeName;
-		UINT semanticIndex = 0;
+		nlohmann::json attributes = m_modelJson->meshes[meshIndex].primitives[primitiveIndex].attributes;
+		UINT numAttributes = static_cast<UINT>(attributes.size());
 
-		// Dont want the semantic name to be TEXCOORD_1 like in the glTF file, so we re-assign it explicitly here
-		if (attributeName.find("TEXCOORD") != std::string::npos)
+		// attributeName is the key, accessorIndex is the value
+		int attributeIndex = 0;
+		meshPrimitive->AttributeNames.resize(numAttributes);
+
+		for (auto& [attributeName, accessorIndex] : attributes.items())
 		{
-			mesh->AttributeNames[attributeIndex] = "TEXCOORD";
-			semanticIndex = std::stoi(attributeName.substr(9));
+			ModelGLTF::Accessor attributeAccessor = m_modelJson->accessors[accessorIndex.get<int>()];
+			ModelGLTF::BufferView attributeBufferViewInfo = m_modelJson->bufferViews[attributeAccessor.bufferView];
+
+			D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+			vertexBufferView.BufferLocation = ModelBinResource->GetGPUVirtualAddress() + attributeAccessor.byteOffset + attributeBufferViewInfo.byteOffset;
+			vertexBufferView.SizeInBytes = attributeAccessor.count * attributeBufferViewInfo.byteStride;
+			vertexBufferView.StrideInBytes = attributeBufferViewInfo.byteStride; // size of each vertex buffer position attribute
+			meshPrimitiveVBVs.push_back(vertexBufferView);
+
+			/*std::cout << "MeshIndex " << meshIndex << ", BufferView " << attributeName << ":\n"
+			<< "Offset: " << vertexBufferView.BufferLocation << "\n"
+			<< "Size: " << vertexBufferView.SizeInBytes << "\n"
+			<< "Stride: " << vertexBufferView.StrideInBytes << "\n";*/
+
+			meshPrimitive->AttributeNames[attributeIndex] = attributeName;
+			UINT semanticIndex = 0;
+
+			// Dont want the semantic name to be TEXCOORD_1 like in the glTF file, so we re-assign it explicitly here
+			if (attributeName.find("TEXCOORD") != std::string::npos)
+			{
+				meshPrimitive->AttributeNames[attributeIndex] = "TEXCOORD";
+				semanticIndex = std::stoi(attributeName.substr(9));
+			}
+
+			D3D12_INPUT_ELEMENT_DESC inputLayoutElement{};
+			inputLayoutElement.AlignedByteOffset = 0;
+			inputLayoutElement.InputSlot = attributeIndex;
+			inputLayoutElement.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+			inputLayoutElement.SemanticName = meshPrimitive->AttributeNames[attributeIndex].c_str();
+			inputLayoutElement.SemanticIndex = semanticIndex;
+			std::cout << "Attribute semantic name: " << meshPrimitive->AttributeNames[attributeIndex]
+				<< ", semantic index: " << semanticIndex << "\n";
+
+			std::string& attributeType = attributeAccessor.type;
+			if (attributeType == "VEC4") { inputLayoutElement.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; }
+			else if (attributeType == "VEC3") { inputLayoutElement.Format = DXGI_FORMAT_R32G32B32_FLOAT; }
+			else if (attributeType == "VEC2") { inputLayoutElement.Format = DXGI_FORMAT_R32G32_FLOAT; }
+			else if (attributeType == "SCALAR") { inputLayoutElement.Format = DXGI_FORMAT_R32_FLOAT; }
+
+			meshPrimitive->inputLayoutList.push_back(inputLayoutElement);
+
+			attributeIndex++;
 		}
-
-		D3D12_INPUT_ELEMENT_DESC inputLayoutElement{};
-		inputLayoutElement.AlignedByteOffset = 0;
-		inputLayoutElement.InputSlot = attributeIndex;
-		inputLayoutElement.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-		inputLayoutElement.SemanticName = mesh->AttributeNames[attributeIndex].c_str();
-		inputLayoutElement.SemanticIndex = semanticIndex;
-		std::cout << "Attribute semantic name: " << mesh->AttributeNames[attributeIndex]
-			<< ", semantic index: " << semanticIndex << "\n";
-
-		std::string& attributeType = attributeAccessor.type;
-		if (attributeType == "VEC4"){ inputLayoutElement.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;}
-		else if (attributeType == "VEC3") { inputLayoutElement.Format = DXGI_FORMAT_R32G32B32_FLOAT; }
-		else if (attributeType == "VEC2") { inputLayoutElement.Format = DXGI_FORMAT_R32G32_FLOAT; }
-		else if (attributeType == "SCALAR") { inputLayoutElement.Format = DXGI_FORMAT_R32_FLOAT; }
-	
-		mesh->inputLayoutList.push_back(inputLayoutElement);
-
-		attributeIndex++;
+		meshPrimitive->inputLayout.NumElements = numAttributes;
+		meshPrimitive->inputLayout.pInputElementDescs = meshPrimitive->inputLayoutList.data();
 	}
-	mesh->inputLayout.NumElements = numAttributes;
-	mesh->inputLayout.pInputElementDescs = mesh->inputLayoutList.data();
 }
 
 void Model::SetMeshIndexBufferView(int meshIndex)
 {
 	Mesh* mesh = m_meshes[meshIndex];
-	ModelGLTF::Accessor accessor = m_modelJson->accessors[m_modelJson->meshes[meshIndex].primitives[0].indices];
-	ModelGLTF::BufferView bufferView = m_modelJson->bufferViews[accessor.bufferView];
 
-	int byteStride{};
-	switch (accessor.componentType)
+	for(int i=0; i<mesh->Primitives.size(); i++)
 	{
-	case ModelGLTF::ComponentType::UInt:
-	case ModelGLTF::ComponentType::Float:
-		byteStride = 4;
-		break;
+		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+		ModelGLTF::Accessor accessor = m_modelJson->accessors[m_modelJson->meshes[meshIndex].primitives[i].indices];
+		ModelGLTF::BufferView bufferView = m_modelJson->bufferViews[accessor.bufferView];
 
-	case ModelGLTF::ComponentType::Short:
-	case ModelGLTF::ComponentType::UShort:
-		byteStride = 2;
-		break;
+		int byteStride{};
+		switch (accessor.componentType)
+		{
+		case ModelGLTF::ComponentType::UInt:
+		case ModelGLTF::ComponentType::Float:
+			byteStride = 4;
+			break;
 
-	case ModelGLTF::ComponentType::Byte:
-	case ModelGLTF::ComponentType::UByte:
-		byteStride = 1;
-		break;
+		case ModelGLTF::ComponentType::Short:
+		case ModelGLTF::ComponentType::UShort:
+			byteStride = 2;
+			break;
+
+		case ModelGLTF::ComponentType::Byte:
+		case ModelGLTF::ComponentType::UByte:
+			byteStride = 1;
+			break;
+		}
+
+		D3D12_INDEX_BUFFER_VIEW& meshPrimitiveIndexBufferView = meshPrimitive->IndexBufferView;
+		meshPrimitiveIndexBufferView.BufferLocation = ModelBinResource->GetGPUVirtualAddress() + accessor.byteOffset + bufferView.byteOffset;
+		meshPrimitiveIndexBufferView.SizeInBytes = accessor.count * byteStride;
+		meshPrimitiveIndexBufferView.Format = DXGI_FORMAT_R32_UINT;
+
+		meshPrimitive->NumIndices = accessor.count;
 	}
-
-	D3D12_INDEX_BUFFER_VIEW& meshIndexBufferView = mesh->IndexBufferView;
-	meshIndexBufferView.BufferLocation = ModelBinResource->GetGPUVirtualAddress() + accessor.byteOffset + bufferView.byteOffset;
-	meshIndexBufferView.SizeInBytes = accessor.count * byteStride;
-	meshIndexBufferView.Format = DXGI_FORMAT_R32_UINT;
-
-	mesh->NumIndices = accessor.count;
 }
 
 void Model::SetMeshTextures(int meshIndex)
 {
 	Mesh* mesh = m_meshes[meshIndex];
-	int materialIndex = m_modelJson->meshes[meshIndex].primitives[0].material;
-	ModelGLTF::Material texMaterial = m_modelJson->materials[materialIndex];
 
-	std::vector<int> texIndices{};
-
-	int normalTexIndex = texMaterial.normalTexture.index;
-	int occlusionTexIndex = texMaterial.occlusionTexture.index;
-	int emissiveTexIndex = texMaterial.emissiveTexture.index;
-	int metallicRoughnessTexIndex = texMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index;
-	int pbrBaseColorTexIndex = texMaterial.pbrMetallicRoughness.baseColorTexture.index;
-
-	if (normalTexIndex >= 0) { texIndices.push_back(normalTexIndex); }
-	if (occlusionTexIndex >= 0) { texIndices.push_back(occlusionTexIndex);}
-	if (emissiveTexIndex >= 0) { texIndices.push_back(emissiveTexIndex); }
-	if (metallicRoughnessTexIndex >= 0) { texIndices.push_back(metallicRoughnessTexIndex); }
-	if (pbrBaseColorTexIndex >= 0) { texIndices.push_back(pbrBaseColorTexIndex); }
-
-	for (int& texIndex : texIndices)
+	for (int i = 0; i < mesh->Primitives.size(); i++)
 	{
-		ModelGLTF::Texture texMetaData = m_modelJson->textures[texIndex];
-			
-		int imgIndex = texMetaData.source;
-		ModelGLTF::Image texImage = m_modelJson->images[imgIndex];
-			
-		std::string texPath = m_modelBasePath + texImage.uri;
-		std::cout << "\nTexture image path: " << texPath;
+		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+		int materialIndex = m_modelJson->meshes[meshIndex].primitives[i].material;
+		ModelGLTF::Material texMaterial = m_modelJson->materials[materialIndex];
 
-		Texture* texture = new Texture();
-		int tempWidth{};
-		int tempHeight{};
-		int tempNumChannels{};
+		std::vector<int> texIndices{};
 
-		texture->PixelData = stbi_load(texPath.c_str(), &tempWidth, &tempHeight, &tempNumChannels, 4);
-		texture->Width = static_cast<UINT>(tempWidth);
-		texture->Height = static_cast<UINT>(tempHeight);
-		texture->NumChannels = 4;
-		texture->TexSizeBytes = texture->Width * texture->Height * texture->NumChannels;
-		texture->TexBox = { 0, 0, 0, texture->Width, texture->Height, 1 };
-		texture->Path = texPath;
+		int normalTexIndex = texMaterial.normalTexture.index;
+		int occlusionTexIndex = texMaterial.occlusionTexture.index;
+		int emissiveTexIndex = texMaterial.emissiveTexture.index;
+		int metallicRoughnessTexIndex = texMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index;
+		int pbrBaseColorTexIndex = texMaterial.pbrMetallicRoughness.baseColorTexture.index;
 
-		std::cout << "\nTexture dimensions: (" << texture->Width << "," << texture->Height << "), numChannels:" << texture->NumChannels << "\n";
-		mesh->Textures.push_back(texture);
+		if (normalTexIndex >= 0) { texIndices.push_back(normalTexIndex); }
+		if (occlusionTexIndex >= 0) { texIndices.push_back(occlusionTexIndex); }
+		if (emissiveTexIndex >= 0) { texIndices.push_back(emissiveTexIndex); }
+		if (metallicRoughnessTexIndex >= 0) { texIndices.push_back(metallicRoughnessTexIndex); }
+		if (pbrBaseColorTexIndex >= 0) { texIndices.push_back(pbrBaseColorTexIndex); }
+
+		for (int& texIndex : texIndices)
+		{
+			ModelGLTF::Texture texMetaData = m_modelJson->textures[texIndex];
+
+			int imgIndex = texMetaData.source;
+			ModelGLTF::Image texImage = m_modelJson->images[imgIndex];
+
+			std::string texPath = m_modelBasePath + texImage.uri;
+			std::cout << "\nTexture image path: " << texPath;
+
+			Texture* texture = new Texture();
+			int tempWidth{};
+			int tempHeight{};
+			int tempNumChannels{};
+
+			texture->PixelData = stbi_load(texPath.c_str(), &tempWidth, &tempHeight, &tempNumChannels, 4);
+			texture->Width = static_cast<UINT>(tempWidth);
+			texture->Height = static_cast<UINT>(tempHeight);
+			texture->NumChannels = 4;
+			texture->TexSizeBytes = texture->Width * texture->Height * texture->NumChannels;
+			texture->TexBox = { 0, 0, 0, texture->Width, texture->Height, 1 };
+			texture->Path = texPath;
+
+			std::cout << "\nTexture dimensions: (" << texture->Width << "," << texture->Height << "), numChannels:" << texture->NumChannels << "\n";
+			meshPrimitive->Textures.push_back(texture);
+		}
 	}
 	/*ModelGLTF::Texture normalTexMetaData = m_modelJson->textures[normalTexIndex];
 	ModelGLTF::Texture occlusionTexMetaData = m_modelJson->textures[occlusionTexIndex];
@@ -250,20 +279,26 @@ void Model::SetMeshTextures(int meshIndex)
 
 void Model::SetMeshShaders(Mesh* mesh)
 {
-	mesh->Shaders.clear();
-	Shader vertexShader{};
-	vertexShader.BinPath = mesh->Name + "_VertexShader.cso";
-	std::cout << "\nVertex Shader path: " << vertexShader.BinPath << "\n";
-	vertexShader.Type = ShaderType::VERTEX;
-	Utils::LoadBinaryData(vertexShader.BinPath, vertexShader.BinData, vertexShader.BinSize);
-	mesh->Shaders.push_back(vertexShader);
+	for (int i = 0; i < mesh->Primitives.size(); i++)
+	{
+		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+		meshPrimitive->Shaders.clear();
+		
+		// TODO: Make generic for any type of shader
+		Shader vertexShader{};
+		vertexShader.BinPath = mesh->Name + "_VertexShader.cso";
+		std::cout << "\nVertex Shader path: " << vertexShader.BinPath << "\n";
+		vertexShader.Type = ShaderType::VERTEX;
+		Utils::LoadBinaryData(vertexShader.BinPath, vertexShader.BinData, vertexShader.BinSize);
+		meshPrimitive->Shaders.push_back(vertexShader);
 
-	Shader pixelShader{};
-	pixelShader.BinPath = mesh->Name + "_PixelShader.cso";
-	std::cout << "\Pixel Shader path: " << pixelShader.BinPath << "\n";
-	pixelShader.Type = ShaderType::PIXEL;
-	Utils::LoadBinaryData(pixelShader.BinPath, pixelShader.BinData, pixelShader.BinSize);
-	mesh->Shaders.push_back(pixelShader);
+		Shader pixelShader{};
+		pixelShader.BinPath = mesh->Name + "_PixelShader.cso";
+		std::cout << "\Pixel Shader path: " << pixelShader.BinPath << "\n";
+		pixelShader.Type = ShaderType::PIXEL;
+		Utils::LoadBinaryData(pixelShader.BinPath, pixelShader.BinData, pixelShader.BinSize);
+		meshPrimitive->Shaders.push_back(pixelShader);
+	}
 }
 
 void Model::SetWVPMatrixForMesh(Mesh* mesh, DirectX::XMMATRIX& newWVPMatrix)

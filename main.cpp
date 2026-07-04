@@ -404,7 +404,7 @@ void CreateViewport()
 	scissorRect.bottom = Height;
 }
 
-bool CreateRootSignature(Mesh* mesh)
+bool CreateRootSignature(MeshPrimitive* meshPrimitive)
 {
 	D3D12_ROOT_PARAMETER rootParams[2]{};
 
@@ -425,7 +425,7 @@ bool CreateRootSignature(Mesh* mesh)
 	// ------------- texture srv -----------------------------------------------------------
 	D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
 	rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
-	rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(mesh->Textures.size());
+	rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive->Textures.size());
 	rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	
@@ -486,75 +486,19 @@ bool CreateRootSignature(Mesh* mesh)
 	return true;
 }
 
-bool CompileShaders()
-{
-	//
-	//HRESULT hr;
-
-	//ID3DBlob* vertexShader;
-	//ID3DBlob* errorBufferVS;
-
-	//hr = D3DCompileFromFile(
-	//	VERTEXSHADER,
-	//	nullptr, // macros (e.g., {"ABCD", "3"})
-	//	nullptr, // any #includes in the shader script
-	//	"main", // name of the entry function in the shader
-	//	"vs_5_1", // shader model used for compilation (e.g,. shader model 5.0)
-	//	D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, // compile option flags
-	//	0, // effect flags
-	//	&vertexShader,
-	//	&errorBufferVS);
-
-	//if(FAILED(hr))
-	//{
-	//	LOG_HR_AND_RETURN_FAIL(hr, "Failed to compile vertex shader!");
-	//	const char* errorMsg = (const char*)errorBufferVS->GetBufferPointer();
-	//	MessageBoxA(0, errorMsg, "Error", MB_OK);
-	//}
-
-	//vertexShaderBytecode.BytecodeLength = vertexShader->GetBufferSize();
-	//vertexShaderBytecode.pShaderBytecode = vertexShader->GetBufferPointer();
-
-	//ID3DBlob* errorBufferPS;
-
-	//ID3DBlob* pixelShader;
-	//hr = D3DCompileFromFile(
-	//	PIXELSHADER,
-	//	nullptr,
-	//	nullptr,
-	//	"main",
-	//	"ps_5_1",
-	//	D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
-	//	0,
-	//	&pixelShader,
-	//	&errorBufferPS);
-
-	//if (FAILED(hr))
-	//{
-	//	//LOG_HR_AND_RETURN_FAIL(hr, "Failed to compile pixel shader!");
-	//	const char* errorMsg = (const char*)errorBufferPS->GetBufferPointer();
-	//	MessageBoxA(0, errorMsg, "Error", MB_OK);
-	//}
-	//
-	//pixelShaderBytecode.BytecodeLength = pixelShader->GetBufferSize();
-	//pixelShaderBytecode.pShaderBytecode = pixelShader->GetBufferPointer();
-
-	return true;
-}
-
 
 // Needs root signature and input layout
-bool CreatePipelineStateObject(Mesh* mesh)
+bool CreatePipelineStateObject(MeshPrimitive* meshPrimitive)
 {
 	HRESULT hr;
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.InputLayout = mesh->inputLayout;
+	graphicsPipelineStateDesc.InputLayout = meshPrimitive->inputLayout;
 	graphicsPipelineStateDesc.pRootSignature = rootSignature;
 	//graphicsPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG;
 	/*graphicsPipelineStateDesc.VS = vertexShaderBytecode;
 	graphicsPipelineStateDesc.PS = pixelShaderBytecode;*/
-	graphicsPipelineStateDesc.VS = { mesh->Shaders[0].BinData, mesh->Shaders[0].BinSize };
-	graphicsPipelineStateDesc.PS = { mesh->Shaders[1].BinData, mesh->Shaders[1].BinSize };
+	graphicsPipelineStateDesc.VS = { meshPrimitive->Shaders[0].BinData, meshPrimitive->Shaders[0].BinSize };
+	graphicsPipelineStateDesc.PS = { meshPrimitive->Shaders[1].BinData, meshPrimitive->Shaders[1].BinSize };
 	graphicsPipelineStateDesc.NumRenderTargets = 1;
 	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
@@ -651,29 +595,33 @@ bool UpdatePipeline()
 		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
 		for (Mesh* mesh : modelMeshes)
 		{
-			CHECK_FAIL(CreateRootSignature(mesh));
-			CHECK_FAIL(CreatePipelineStateObject(mesh));
-			commandList->SetGraphicsRootSignature(rootSignature);
-			commandList->SetPipelineState(pipelineStateObject);
-
-			int slot = 0;
-			for(D3D12_VERTEX_BUFFER_VIEW& vertexBufferView : mesh->VertexBufferViews)
+			for (int i = 0; i < mesh->Primitives.size(); i++)
 			{
-				//std::cout << "Slot: " << slot << " is at " << vertexBufferView.BufferLocation <<"\n";
-				commandList->IASetVertexBuffers(slot, 1, &vertexBufferView);
-				slot++;
-			}
-			commandList->IASetIndexBuffer(&mesh->IndexBufferView);
+				MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+				CHECK_FAIL(CreateRootSignature(meshPrimitive));
+				CHECK_FAIL(CreatePipelineStateObject(meshPrimitive));
+				commandList->SetGraphicsRootSignature(rootSignature);
+				commandList->SetPipelineState(pipelineStateObject);
 
-			commandList->SetDescriptorHeaps(1, &mesh->MainShaderVisibleDescriptorHeap);
-			
-			D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = mesh->MainShaderVisibleDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
-			commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
-			
-			descriptorHandle.ptr += device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
-			
-			commandList->DrawIndexedInstanced(mesh->NumIndices, 1, 0, 0, 0);
+				int slot = 0;
+				for (D3D12_VERTEX_BUFFER_VIEW& vertexBufferView : meshPrimitive->VertexBufferViews)
+				{
+					//std::cout << "Slot: " << slot << " is at " << vertexBufferView.BufferLocation <<"\n";
+					commandList->IASetVertexBuffers(slot, 1, &vertexBufferView);
+					slot++;
+				}
+				commandList->IASetIndexBuffer(&meshPrimitive->IndexBufferView);
+
+				commandList->SetDescriptorHeaps(1, &meshPrimitive->MainShaderVisibleDescriptorHeap);
+
+				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = meshPrimitive->MainShaderVisibleDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+				commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
+
+				descriptorHandle.ptr += device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+				commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
+
+				commandList->DrawIndexedInstanced(meshPrimitive->NumIndices, 1, 0, 0, 0);
+			}
 		}
 	}
 
@@ -807,53 +755,57 @@ bool SetDescriptors(Mesh* mesh)
 {
 	HRESULT hr;
 
-	// Create the descriptor heap to hold descriptors for all mesh resources -----------------------------------------
-	D3D12_DESCRIPTOR_HEAP_DESC mainSrvDescriptorHeapDesc{};
-	mainSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	mainSrvDescriptorHeapDesc.NumDescriptors = static_cast<UINT>(mesh->Textures.size())+1; // +1 for mesh's WVP matrix
-	mainSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	hr = device->CreateDescriptorHeap(&mainSrvDescriptorHeapDesc, IID_PPV_ARGS(&mesh->MainShaderVisibleDescriptorHeap));
-	PROMPTFAIL(hr, "Failed to create main descriptor heap for mesh " + std::string(mesh->Name));
-
-	// Create the handle
+	// Create the common handle for the WVP matrix
 	D3D12_CONSTANT_BUFFER_VIEW_DESC wvpMatrixCBVDesc{};
 	wvpMatrixCBVDesc.BufferLocation = mesh->WVPMatrixGPUResource->GetGPUVirtualAddress();
-	wvpMatrixCBVDesc.SizeInBytes = 256*(1+static_cast<UINT>(mesh->WVPMatrixVector.size())/256);
-	
+	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(mesh->WVPMatrixVector.size()) / 256);
+
 	std::cout << "Mesh " << mesh->Name << " CBV size in bytes " << wvpMatrixCBVDesc.SizeInBytes << "\n";
 
-	int descriptorNumber = 0;
-	UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE wvpMatrixCBVHandle(
-		mesh->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-		descriptorNumber, descriptorSize); // offsets the Heapstart by the descriptorNumber*descriptorSize
-	
-	// Create the view
-	device->CreateConstantBufferView(&wvpMatrixCBVDesc, wvpMatrixCBVHandle);
-
-	// Setup SRV for shader interaction with Resource -------------------------------------
-	D3D12_TEX2D_SRV texture2DSrvMips{};
-	texture2DSrvMips.MipLevels = 1;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC textureSrvDesc{};
-	textureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	textureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	textureSrvDesc.Texture2D = texture2DSrvMips;
-	textureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-
-	for (Texture* texture : mesh->Textures)
+	for (int i = 0; i < mesh->Primitives.size(); i++)
 	{
-		descriptorNumber++;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE textureSRVHandle(
-			mesh->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-			descriptorNumber, descriptorSize);
+		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+		// Create the descriptor heap to hold descriptors for all mesh resources -----------------------------------------
+		D3D12_DESCRIPTOR_HEAP_DESC mainSrvDescriptorHeapDesc{};
+		mainSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		mainSrvDescriptorHeapDesc.NumDescriptors = static_cast<UINT>(meshPrimitive->Textures.size()) + 1; // +1 for mesh's WVP matrix
+		mainSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		hr = device->CreateDescriptorHeap(&mainSrvDescriptorHeapDesc, IID_PPV_ARGS(&meshPrimitive->MainShaderVisibleDescriptorHeap));
+		PROMPTFAIL(hr, "Failed to create main descriptor heap for mesh " + std::string(mesh->Name) + " primitive at index " + std::to_string(i));
 
-		device->CreateShaderResourceView(
-			texture->GPUResource,
-			&textureSrvDesc,
-			textureSRVHandle
-		);
+		int descriptorNumber = 0;
+		UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE wvpMatrixCBVHandle(
+			meshPrimitive->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+			descriptorNumber, descriptorSize); // offsets the Heapstart by the descriptorNumber*descriptorSize
+
+		// Create the view
+		device->CreateConstantBufferView(&wvpMatrixCBVDesc, wvpMatrixCBVHandle);
+
+		// Setup SRV for shader interaction with Resource -------------------------------------
+		D3D12_TEX2D_SRV texture2DSrvMips{};
+		texture2DSrvMips.MipLevels = 1;
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC textureSrvDesc{};
+		textureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		textureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureSrvDesc.Texture2D = texture2DSrvMips;
+		textureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+
+		for (Texture* texture : meshPrimitive->Textures)
+		{
+			descriptorNumber++;
+			CD3DX12_CPU_DESCRIPTOR_HANDLE textureSRVHandle(
+				meshPrimitive->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+				descriptorNumber, descriptorSize);
+
+			device->CreateShaderResourceView(
+				texture->GPUResource,
+				&textureSrvDesc,
+				textureSRVHandle
+			);
+		}
 	}
 
 }
@@ -943,7 +895,7 @@ bool Init()
 	CHECK_FAIL(CreateCommandList()); // needs device and command allocator
 	CHECK_FAIL(CreateFences()); // needs device
 
-	CHECK_FAIL(CompileShaders());
+	//CHECK_FAIL(CompileShaders());
 	CreateViewport();
 
 	commandList->Reset(commandAllocators[g_frameIndex], nullptr);
@@ -1014,20 +966,12 @@ bool Init()
 
 		model->SetData();
 
-		int meshIndex = 0;
 		for(Mesh* mesh : modelMeshes)
 		{
-			const std::vector<Texture*>& meshTextures = mesh->Textures;
-			for(Texture* texture : meshTextures)
-			{
-				CHECK_FAIL(CreateTextureResource(texture));
-				CHECK_FAIL(UploadTexture(texture));
-			}
-
 			/*DirectX::XMMATRIX& meshWorldMatrix = mesh->worldMatrix;
-			std::cout << "\nWorld matrix :";
-			Utils::printMatrix(meshWorldMatrix);*/
-			//wvpMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(*worldMatricesForRenderableNodes[i], vpMatrix));
+				std::cout << "\nWorld matrix :";
+				Utils::printMatrix(meshWorldMatrix);*/
+				//wvpMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(*worldMatricesForRenderableNodes[i], vpMatrix));
 
 			std::cout << "\Model Space Transform matrix :";
 			Utils::printMatrix(mesh->ModelSpaceTransformMatrix);
@@ -1043,12 +987,21 @@ bool Init()
 			}
 			std::cout << "\n";*/
 
-			CHECK_FAIL(CreateBufferResource(mesh->WVPMatrixGPUResource, mesh->WVPMatrixVector.size()*sizeof(float)));
-			CHECK_FAIL(UploadBuffer(mesh->WVPMatrixGPUResource, reinterpret_cast<byte*>(mesh->WVPMatrixVector.data()), mesh->WVPMatrixVector.size()*sizeof(float)));
+			CHECK_FAIL(CreateBufferResource(mesh->WVPMatrixGPUResource, mesh->WVPMatrixVector.size() * sizeof(float)));
+			CHECK_FAIL(UploadBuffer(mesh->WVPMatrixGPUResource, reinterpret_cast<byte*>(mesh->WVPMatrixVector.data()), mesh->WVPMatrixVector.size() * sizeof(float)));
+
+			for (int i = 0; i < mesh->Primitives.size(); i++)
+			{
+				MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+				const std::vector<Texture*>& meshPrimitiveTextures = meshPrimitive->Textures;
+				for (Texture* texture : meshPrimitiveTextures)
+				{
+					CHECK_FAIL(CreateTextureResource(texture));
+					CHECK_FAIL(UploadTexture(texture));
+				}
+			}
 
 			SetDescriptors(mesh);
-
-			meshIndex++;
 		}
 	}
 
@@ -1100,6 +1053,64 @@ void Cleanup()
 		SAFE_RELEASE(fencesGPU[i]);
 	}
 }
+
+
+
+//bool CompileShaders()
+//{
+	//
+	//HRESULT hr;
+
+	//ID3DBlob* vertexShader;
+	//ID3DBlob* errorBufferVS;
+
+	//hr = D3DCompileFromFile(
+	//	VERTEXSHADER,
+	//	nullptr, // macros (e.g., {"ABCD", "3"})
+	//	nullptr, // any #includes in the shader script
+	//	"main", // name of the entry function in the shader
+	//	"vs_5_1", // shader model used for compilation (e.g,. shader model 5.0)
+	//	D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, // compile option flags
+	//	0, // effect flags
+	//	&vertexShader,
+	//	&errorBufferVS);
+
+	//if(FAILED(hr))
+	//{
+	//	LOG_HR_AND_RETURN_FAIL(hr, "Failed to compile vertex shader!");
+	//	const char* errorMsg = (const char*)errorBufferVS->GetBufferPointer();
+	//	MessageBoxA(0, errorMsg, "Error", MB_OK);
+	//}
+
+	//vertexShaderBytecode.BytecodeLength = vertexShader->GetBufferSize();
+	//vertexShaderBytecode.pShaderBytecode = vertexShader->GetBufferPointer();
+
+	//ID3DBlob* errorBufferPS;
+
+	//ID3DBlob* pixelShader;
+	//hr = D3DCompileFromFile(
+	//	PIXELSHADER,
+	//	nullptr,
+	//	nullptr,
+	//	"main",
+	//	"ps_5_1",
+	//	D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
+	//	0,
+	//	&pixelShader,
+	//	&errorBufferPS);
+
+	//if (FAILED(hr))
+	//{
+	//	//LOG_HR_AND_RETURN_FAIL(hr, "Failed to compile pixel shader!");
+	//	const char* errorMsg = (const char*)errorBufferPS->GetBufferPointer();
+	//	MessageBoxA(0, errorMsg, "Error", MB_OK);
+	//}
+	//
+	//pixelShaderBytecode.BytecodeLength = pixelShader->GetBufferSize();
+	//pixelShaderBytecode.pShaderBytecode = pixelShader->GetBufferPointer();
+
+//	return true;
+//}
 
 // ---- create committed texture upload and default resources -------------------------
 		//ID3D12Resource* textureUploadHeap{};

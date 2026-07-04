@@ -16,7 +16,6 @@ struct ModelBinData {
 	ModelBinData(byte* newBinData, int newBinDataSize) : 
 		binData(newBinData), 
 		binDataSize(newBinDataSize)
-	//	binDataSize(256 * (1 + static_cast<UINT>((newBinDataSize-1) / 256))) 
 	{ }
 };
 
@@ -50,24 +49,30 @@ struct Shader
 	size_t BinSize{0};
 };
 
-struct Mesh
+struct MeshPrimitive
 {
-	std::string Name;
-
 	std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
+	std::vector<std::string> AttributeNames{};
+
 	ID3D12DescriptorHeap* MainShaderVisibleDescriptorHeap;
-	UINT TotalShaderVisibleDescriptors;
 
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
 	UINT NumIndices;
 
 	std::vector<Texture*> Textures;
 	std::vector<Shader> Shaders;
-	std::vector<std::string> AttributeNames{};
+
 
 	D3D12_INPUT_LAYOUT_DESC inputLayout{};
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayoutList{};
+};
 
+struct Mesh
+{
+	std::string Name;
+	std::vector<MeshPrimitive*> Primitives{};
+
+	// Transform related
 	DirectX::XMMATRIX LocalSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
 	DirectX::XMMATRIX ModelSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
 	DirectX::XMMATRIX WVPMatrix{ DirectX::XMMatrixIdentity() };
