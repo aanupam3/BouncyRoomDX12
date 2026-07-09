@@ -1,5 +1,5 @@
-#include "Model.h"
 #include "Macros.h"
+#include "Model.h"
 #include <fstream>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -54,7 +54,7 @@ Model::~Model()
 			meshPrimitive->Textures.clear();
 		}
 
-		SAFE_RELEASE(mesh->WVPMatrixGPUResource);
+		SAFE_RELEASE(mesh->MeshNode->WVPMatrixGPUResource);
 		delete(mesh);
 	}
 	m_meshes.clear();
@@ -76,7 +76,7 @@ void Model::ExtractDataFromGLTF()
 	/*UINT binFileSize = m_modelJson->buffers[0].byteLength;
 	m_binData = new ModelBinData(new byte[binFileSize], binFileSize);*/
 	//Utils::LoadBinaryData(m_binPath, m_binData->binData, binFileSize);
-	
+
 	std::ifstream binFile{ m_binPath, std::ios::binary };
 	if (binFile.is_open()) { std::cout << "Found binary!\n"; }
 	else
@@ -102,7 +102,7 @@ void Model::SetMeshes()
 		m_meshes.push_back(mesh);
 
 		UINT numMeshPrimitives = m_modelJson->meshes[meshIndex].primitives.size();
-		for(UINT primitiveIndex = 0; primitiveIndex < numMeshPrimitives; primitiveIndex++)
+		for (UINT primitiveIndex = 0; primitiveIndex < numMeshPrimitives; primitiveIndex++)
 		{
 			MeshPrimitive* meshPrimitive = new MeshPrimitive();
 			mesh->Primitives.push_back(meshPrimitive);
@@ -185,7 +185,7 @@ void Model::SetMeshIndexBufferView(int meshIndex)
 {
 	Mesh* mesh = m_meshes[meshIndex];
 
-	for(int i=0; i<mesh->Primitives.size(); i++)
+	for (int i = 0; i < mesh->Primitives.size(); i++)
 	{
 		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
 		ModelGLTF::Accessor accessor = m_modelJson->accessors[m_modelJson->meshes[meshIndex].primitives[i].indices];
@@ -283,7 +283,7 @@ void Model::SetMeshShaders(Mesh* mesh)
 	{
 		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
 		meshPrimitive->Shaders.clear();
-		
+
 		// TODO: Make generic for any type of shader
 		Shader vertexShader{};
 		vertexShader.BinPath = mesh->Name + "_VertexShader.cso";
@@ -303,8 +303,9 @@ void Model::SetMeshShaders(Mesh* mesh)
 
 void Model::SetWVPMatrixForMesh(Mesh* mesh, DirectX::XMMATRIX& newWVPMatrix)
 {
-	mesh->WVPMatrix = newWVPMatrix;
-	mesh->WVPMatrixVector = Utils::xmMatrixToVector(newWVPMatrix);
+	Node& meshNode = *(mesh->MeshNode);
+	meshNode.WVPMatrix = newWVPMatrix;
+	meshNode.WVPMatrixVector = Utils::xmMatrixToVector(newWVPMatrix);
 }
 
 void Model::SetNodes()
@@ -316,11 +317,7 @@ void Model::SetNodes()
 
 		node->LocalSpaceTransformMatrix = DirectX::XMMATRIX(nodeJson.matrix.data());
 
-		if (nodeJson.mesh != -1)
-		{
-			node->mesh = m_meshes[nodeJson.mesh];
-			node->mesh->LocalSpaceTransformMatrix = node->LocalSpaceTransformMatrix;
-		}
+		if (nodeJson.mesh != -1) { m_meshes[nodeJson.mesh]->MeshNode = node; }
 
 		m_nodes.push_back(node);
 	}
@@ -328,25 +325,65 @@ void Model::SetNodes()
 	// Set relationships to other nodes once all nodes have been added
 	for (UINT nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
-		Node* parentNode = m_nodes[nodeIndex];
+		Node* node = m_nodes[nodeIndex];
 		ModelGLTF::Node& nodeJson = m_modelJson->nodes[nodeIndex];
 		for (int childNodeIndex : nodeJson.children)
 		{
 			Node* childNode = m_nodes[childNodeIndex];
-			childNode->ParentNode = parentNode;
+			childNode->ParentNode = node;
 			childNode->ModelSpaceTransformMatrix
-				= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, parentNode->ModelSpaceTransformMatrix);
-			if (childNode->mesh)
-			{
-				childNode->mesh->ModelSpaceTransformMatrix = childNode->ModelSpaceTransformMatrix;
-				/*std::cout << "Child Node " << childNodeIndex << " model Space Transform matrix :";
-				Utils::printMatrix(childNode->mesh->ModelSpaceTransformMatrix);*/
-			}
+				= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, node->ModelSpaceTransformMatrix);
+
+			std::cout << "\Model Space Transform matrix for child node at index :" << childNodeIndex;
+			Utils::printMatrix(childNode->ModelSpaceTransformMatrix);
+
+			childNode->WorldSpaceTransformMatrix
+				= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, m_nodes[0]->WorldSpaceTransformMatrix);
+
+			std::cout << "\World Space Transform matrix for child node at index :" << childNodeIndex;
+			Utils::printMatrix(childNode->WorldSpaceTransformMatrix);
 
 			// likely not needed since we don't need non-meshed nodes beyond the above matrix calculation
-			parentNode->ChildrenNodes.push_back(childNode);
+			node->ChildrenNodes.push_back(childNode);
 		}
 	}
+}
+
+void Model::UpdateNodeWorldSpace(Node* node)
+{
+	for (Node* childNode : node->ChildrenNodes)
+	{
+		/*childNode->ModelSpaceTransformMatrix
+			= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, childNode->ParentNode->ModelSpaceTransformMatrix);*/
+
+		childNode->WorldSpaceTransformMatrix
+			= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, m_nodes[0]->WorldSpaceTransformMatrix);
+
+		UpdateNodeWorldSpace(childNode);
+	}
+}
+
+void Model::UpdateAllNodesWorldSpace()
+{
+	// Assumes root node is the first element and that there is only 1 root node
+	UpdateNodeWorldSpace(m_nodes[0]);
+}
+
+void Model::TranslateBy(float x, float y, float z)
+{
+	m_nodes[0]->ModelSpaceTransformMatrix *= DirectX::XMMatrixTranslation(x, y, z);
+	m_nodes[0]->WorldSpaceTransformMatrix *= DirectX::XMMatrixTranslation(x, y, z);
+	UpdateAllNodesWorldSpace();
+}
+
+void Model::RotateByDegrees(float x, float y, float z)
+{
+	float pitch = DirectX::XMConvertToRadians(x);
+	float yaw = DirectX::XMConvertToRadians(y);
+	float roll = DirectX::XMConvertToRadians(z);
+	m_nodes[0]->ModelSpaceTransformMatrix *= DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
+	m_nodes[0]->WorldSpaceTransformMatrix *= DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
+	UpdateAllNodesWorldSpace();
 }
 
 //void Model::UpdateTransforms(std::vector<Node>& nodesJson, int nodeIndex = 0)

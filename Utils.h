@@ -1,8 +1,10 @@
 #pragma once
-#include <vector>
-#include <iostream>
-#include <fstream>
 #include "DirectXMath.h"
+#include <fstream>
+#include <iostream>
+#include <vector>
+
+typedef unsigned char byte;
 
 namespace Utils
 {
@@ -16,7 +18,7 @@ namespace Utils
 			return;
 		}
 
-		if(binSize == 0)
+		if (binSize == 0)
 		{
 			binSize = binFile.tellg();
 		}

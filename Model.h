@@ -1,11 +1,11 @@
 #pragma once
-#include <string>
-#include <vector>
-#include <iostream>
-#include <d3d12.h>
-#include <nlohmann/json.hpp>
 #include "DirectXMath.h"
 #include "ModelGLTF.h"
+#include <d3d12.h>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
 
 typedef unsigned char byte;
 
@@ -13,10 +13,11 @@ struct ModelBinData {
 	byte* binData;
 	UINT binDataSize;
 
-	ModelBinData(byte* newBinData, int newBinDataSize) : 
-		binData(newBinData), 
+	ModelBinData(byte* newBinData, int newBinDataSize) :
+		binData(newBinData),
 		binDataSize(newBinDataSize)
-	{ }
+	{
+	}
 };
 
 struct Texture
@@ -46,7 +47,7 @@ struct Shader
 	ShaderType Type{};
 	std::string BinPath{};
 	byte* BinData{};
-	size_t BinSize{0};
+	size_t BinSize{ 0 };
 };
 
 struct MeshPrimitive
@@ -67,28 +68,26 @@ struct MeshPrimitive
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayoutList{};
 };
 
-struct Mesh
-{
-	std::string Name;
-	std::vector<MeshPrimitive*> Primitives{};
-
-	// Transform related
-	DirectX::XMMATRIX LocalSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
-	DirectX::XMMATRIX ModelSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
-	DirectX::XMMATRIX WVPMatrix{ DirectX::XMMatrixIdentity() };
-	std::vector<float> WVPMatrixVector;
-	ID3D12Resource* WVPMatrixGPUResource;
-};
-
 struct Node
 {
 	DirectX::XMMATRIX LocalSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
 	DirectX::XMMATRIX ModelSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
-	Mesh* mesh{};
+	DirectX::XMMATRIX WorldSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
+
+	DirectX::XMMATRIX WVPMatrix{ DirectX::XMMatrixIdentity() };
+	std::vector<float> WVPMatrixVector;
+	ID3D12Resource* WVPMatrixGPUResource;
+
 	std::vector<Node*> ChildrenNodes{};
 	Node* ParentNode;
 };
 
+struct Mesh
+{
+	std::string Name;
+	std::vector<MeshPrimitive*> Primitives{};
+	Node* MeshNode{};
+};
 
 class Model
 {
@@ -100,12 +99,14 @@ private:
 
 	const ModelBinData* m_binData{};
 	ID3D12Resource* m_modelBinaryDefaultHeap{};
-	
+
 	std::vector<Mesh*> m_meshes{};
 	std::vector<Node*> m_nodes{};
 
 	void ExtractDataFromGLTF();
 	void SetNodes();
+	void UpdateNodeWorldSpace(Node* node);
+	void UpdateAllNodesWorldSpace();
 	void SetMeshes();
 	void SetMeshVertexBufferViews(int meshIndex);
 	void SetMeshIndexBufferView(int meshIndex);
@@ -119,6 +120,9 @@ public:
 
 	std::string Name;
 	UINT NumMeshes;
+
+	void TranslateBy(float x, float y, float z);
+	void RotateByDegrees(float x, float y, float z);
 
 	// getters
 	const ModelGLTF::ModelJson* GetModelJson() const { return m_modelJson; }

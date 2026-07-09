@@ -1,6 +1,6 @@
-#include "stdafx.h"
 #include "Macros.h"
 #include "Model.h"
+#include "stdafx.h"
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT msgId, WPARAM wParam, LPARAM lParam);
 
@@ -112,7 +112,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
 
-	
+
 	while (Running)
 	{
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -127,13 +127,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		}
 		else {
 			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Frame %llu", g_frameIndex);
-			
+
 			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Update");
 			Update();
 			//PIXEndEvent();
-		
+
 			Render(); // execute the command queue (rendering the scene is the result of the gpu executing the command lists)
-	
+
 			//PIXEndEvent();
 		}
 	}
@@ -208,7 +208,7 @@ bool CreateDevice()
 	{
 		DXGI_ADAPTER_DESC1 dxgiAdapterDesc{};
 		hr = adapter->GetDesc1(&dxgiAdapterDesc);
-		if(FAILED(hr))
+		if (FAILED(hr))
 		{
 			std::string fullMsg = "Failed to get DXGI Adapter Desc" + Utils::HrToAString(hr);
 			MessageBoxA(0, fullMsg.c_str(), "Error", MB_OK);
@@ -241,7 +241,7 @@ bool CreateDevice()
 	}
 	else
 	{
-		std::cout<< "ERROR: Failed to find suitable adapter to create device";
+		std::cout << "ERROR: Failed to find suitable adapter to create device";
 		return false;
 	}
 }
@@ -259,7 +259,7 @@ bool CreateCommandQueue()
 	hr = device->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue));
 
 	PROMPTFAIL(hr, "Failed to create direct command queue with error ");
-	
+
 	return true;
 }
 
@@ -267,7 +267,7 @@ bool CreateSwapChain()
 {
 	HRESULT hr;
 	DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-	
+
 	swapChainDesc.BufferCount = g_frameBufferCount;
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.OutputWindow = hwnd;
@@ -291,7 +291,7 @@ bool CreateSwapChain()
 	swapChain = static_cast<IDXGISwapChain3*>(tempSwapChain);
 	g_frameIndex = swapChain->GetCurrentBackBufferIndex();
 
-	return true;	
+	return true;
 }
 
 bool CreateRTVAndDescriptorHeap()
@@ -316,11 +316,11 @@ bool CreateRTVAndDescriptorHeap()
 	// CPU/GPU-visible address spaces and hands you opaque handles when you ask.
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvDescriptorHandle{ rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart() };
 
-	for(int i=0; i < g_frameBufferCount; i++)
-	{ 
+	for (int i = 0; i < g_frameBufferCount; i++)
+	{
 		// Get the swap chain buffer locations
 		hr = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTargets[i]));
-		
+
 		{
 			const std::string msg = "Failed to Get swap chain buffer " + std::to_string(i);
 			PROMPTFAIL(hr, msg.c_str());
@@ -328,7 +328,7 @@ bool CreateRTVAndDescriptorHeap()
 
 		// Assign the rtv descriptor handle to the swap chain buffers
 		device->CreateRenderTargetView(renderTargets[i], nullptr, rtvDescriptorHandle);
-		
+
 		rtvDescriptorHandle.Offset(1, g_rtvDescriptorSize);
 	}
 	return true;
@@ -340,7 +340,7 @@ bool CreateCommandAllocators()
 
 	// Need as many as frame buffer count since we can't reset while one is executing, and there will be
 	// multiple executing simultaneously as we attempt to fill the backbuffers while the front is scanning out
-	for(int i = 0; i < g_frameBufferCount; i++)
+	for (int i = 0; i < g_frameBufferCount; i++)
 	{
 		hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocators[i]));
 
@@ -355,7 +355,7 @@ bool CreateCommandList()
 	HRESULT hr;
 
 	hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocators[g_frameIndex], NULL, IID_PPV_ARGS(&commandList));
-	
+
 	PROMPTFAIL(hr, "Failed to create command list");
 
 	commandList->Close();
@@ -374,7 +374,7 @@ bool CreateFences()
 
 		const std::string msg = "Failed to Create Fence for frame buffer " + std::to_string(i);
 		PROMPTFAIL(hr, msg.c_str());
-	
+
 		fenceValuesCPU[i] = 0;
 	}
 
@@ -421,14 +421,14 @@ bool CreateRootSignature(MeshPrimitive* meshPrimitive)
 	rootParams[0].DescriptorTable = rootWVPMatricesDescTable;
 	rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	
+
 	// ------------- texture srv -----------------------------------------------------------
 	D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
 	rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
 	rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive->Textures.size());
 	rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	
+
 	D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
 	rootTexSrvDescriptorTable.NumDescriptorRanges = 1;
 	rootTexSrvDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
@@ -445,7 +445,7 @@ bool CreateRootSignature(MeshPrimitive* meshPrimitive)
 	textureSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	textureSampler.ShaderRegister = 0; //s0
 	textureSampler.RegisterSpace = 0;
-	
+
 	//D3D12_DESCRIPTOR_RANGE rootTextSamplerDescriptorRange{};
 	//rootTextSamplerDescriptorRange.BaseShaderRegister = 0; //t0
 	//rootTextSamplerDescriptorRange.NumDescriptors = 1;
@@ -472,7 +472,7 @@ bool CreateRootSignature(MeshPrimitive* meshPrimitive)
 	ID3DBlob* errorBlob;
 	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &errorBlob);
 
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
 		const char* errorMsg = (const char*)errorBlob->GetBufferPointer();
 		MessageBoxA(0, errorMsg, "Error", MB_OK);
@@ -480,7 +480,7 @@ bool CreateRootSignature(MeshPrimitive* meshPrimitive)
 	PROMPTFAIL(hr, "Failed to assign root signature blob! ");
 
 	hr = device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
-	
+
 	PROMPTFAIL(hr, "Failed to create root signature! ");
 
 	return true;
@@ -511,7 +511,7 @@ bool CreatePipelineStateObject(MeshPrimitive* meshPrimitive)
 	// There is a special index value that represents the desire to have a discontinuity in the strip, the cut index value. 
 	// This enum lists the supported cut values.
 	//graphicsPipelineStateDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
-	
+
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&pipelineStateObject));
 	//std::cout << "Pipeline state object: " << pipelineStateObject << "\n";
 	PROMPTFAIL(device->GetDeviceRemovedReason(), "Failed to create graphics pipeline state object. ");
@@ -552,12 +552,12 @@ bool UpdatePipeline()
 	WaitForPreviousFrame();
 
 	HRESULT hr = commandAllocators[g_frameIndex]->Reset();
-	
+
 	PROMPTFAIL(hr, "Failed to reset command allocator");
 
 	// reset, now ready for recording
 	hr = commandList->Reset(commandAllocators[g_frameIndex], pipelineStateObject);
-	
+
 	PROMPTFAIL(hr, "Failed to reset command LIST");
 
 	// change from present state to render target state for recording
@@ -642,7 +642,7 @@ bool UpdatePipeline()
 bool Render()
 {
 	HRESULT hr = S_OK;
-	if(UpdatePipeline() == false) 
+	if (UpdatePipeline() == false)
 	{
 		PROMPTFAIL(hr, "Failed to record!\n");
 	}
@@ -652,7 +652,7 @@ bool Render()
 	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 
 	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
-	
+
 	PROMPTFAIL(hr, "Failed to signal fence with error ");
 
 	// presents the current back buffer
@@ -660,7 +660,7 @@ bool Render()
 
 	const std::string msg = "Failed to present backbuffer at index " + std::to_string(g_frameIndex);
 	PROMPTFAIL(hr, msg.c_str());
-	
+
 	return true;
 }
 
@@ -669,7 +669,7 @@ bool Reset()
 	WaitForPreviousFrame();
 
 	HRESULT hr;
-	
+
 	// Resets write_offset = 0 (this is used for tracking what command we are on in the gpu)
 	// Immediately invalidates all command streams
 	// Does not wait for GPU
@@ -678,7 +678,7 @@ bool Reset()
 	PROMPTFAIL(hr, "Failed to reset command allocator at frame index " + g_frameIndex);
 
 	hr = commandList->Reset(commandAllocators[g_frameIndex], nullptr);
-	
+
 	PROMPTFAIL(hr, "Failed to reset command list with error ");
 
 	commandList->Close();
@@ -755,10 +755,12 @@ bool SetDescriptors(Mesh* mesh)
 {
 	HRESULT hr;
 
+	Node& meshNode = *(mesh->MeshNode);
+
 	// Create the common handle for the WVP matrix
 	D3D12_CONSTANT_BUFFER_VIEW_DESC wvpMatrixCBVDesc{};
-	wvpMatrixCBVDesc.BufferLocation = mesh->WVPMatrixGPUResource->GetGPUVirtualAddress();
-	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(mesh->WVPMatrixVector.size()) / 256);
+	wvpMatrixCBVDesc.BufferLocation = meshNode.WVPMatrixGPUResource->GetGPUVirtualAddress();
+	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(meshNode.WVPMatrixVector.size()) / 256);
 
 	std::cout << "Mesh " << mesh->Name << " CBV size in bytes " << wvpMatrixCBVDesc.SizeInBytes << "\n";
 
@@ -832,7 +834,7 @@ bool UploadTexture(Texture* texture, bool useWriteToSubResource = true)
 	{
 		PROMPTFAIL(0, "Upload heap to default heap approach not set up for uploading textures");
 	}
-	
+
 	return true;
 }
 
@@ -842,7 +844,7 @@ bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t buffe
 	//UINT alignedBufferSize = 256 * (1 + static_cast<UINT>((bufferSize - 1) / 256));
 	/*
 
-	if(!bufferData) 
+	if(!bufferData)
 	{
 		PROMPTFAIL(0, "Buffer source data is null for upload!");
 	}*/
@@ -867,7 +869,7 @@ bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t buffe
 
 	D3D12_RANGE readRange = { 0, 0 }; // CPU will not read
 
-	HRESULT hr = bufferResource->Map(0, &readRange,  &mapped);
+	HRESULT hr = bufferResource->Map(0, &readRange, &mapped);
 
 	PROMPTFAIL(hr, "Failed to map buffer resource");
 
@@ -907,15 +909,15 @@ bool Init()
 	models.push_back(oakTreeModel);
 	//models.push_back(cubeModel);
 
-	constexpr float pitch = DirectX::XMConvertToRadians(90); // X rotation
+	constexpr float pitch = DirectX::XMConvertToRadians(0); // X rotation
 	constexpr float yaw = DirectX::XMConvertToRadians(0); // Y rotation
 	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
 	DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
 
 	DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(
 		0.0f,
-		50.0f,
-		20.0f
+		0.0f,
+		0.0f
 	);
 	DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
 	std::cout << "\nCamera matrix is:";
@@ -948,16 +950,13 @@ bool Init()
 	//std::cout << "\nVP matrix is:";
 	//Utils::printMatrix(vpMatrix);
 
-	/*totalMeshes = 0;
-	totalTextures = 0;*/
-
 	/*std::vector<float>* allWVPMatrices = new std::vector<float>();
 	std::vector<byte>* allTextureData = new std::vector<byte>();*/
 
 	for (Model* model : models)
 	{
 		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
-		
+
 		//if (!model->UploadModelBinary(device, commandList)) { return false; }
 		const ModelBinData* modelBinData = model->GetBinData();
 		CHECK_FAIL(CreateBufferResource(model->ModelBinResource, modelBinData->binDataSize));
@@ -966,20 +965,25 @@ bool Init()
 
 		model->SetData();
 
-		for(Mesh* mesh : modelMeshes)
+		oakTreeModel->RotateByDegrees(-90, 0, 0);
+		oakTreeModel->TranslateBy(0.0f, -10.0f, 50.0f);
+
+		for (Mesh* mesh : modelMeshes)
 		{
 			/*DirectX::XMMATRIX& meshWorldMatrix = mesh->worldMatrix;
 				std::cout << "\nWorld matrix :";
 				Utils::printMatrix(meshWorldMatrix);*/
 				//wvpMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(*worldMatricesForRenderableNodes[i], vpMatrix));
 
-			std::cout << "\Model Space Transform matrix :";
-			Utils::printMatrix(mesh->ModelSpaceTransformMatrix);
+			Node& meshNode = *(mesh->MeshNode);
 
-			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(mesh->ModelSpaceTransformMatrix, vpMatrix) };
+			std::cout << "\World Space Transform matrix :";
+			Utils::printMatrix(meshNode.WorldSpaceTransformMatrix);
+
+			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(meshNode.WorldSpaceTransformMatrix, vpMatrix) };
 			model->SetWVPMatrixForMesh(mesh, wvpMatrix);
 			std::cout << "\nWVP matrix :";
-			Utils::printMatrix(mesh->WVPMatrix);
+			Utils::printMatrix(meshNode.WVPMatrix);
 			/*std::cout << "\n";
 			for (float value : mesh->WVPMatrixVector)
 			{
@@ -987,8 +991,8 @@ bool Init()
 			}
 			std::cout << "\n";*/
 
-			CHECK_FAIL(CreateBufferResource(mesh->WVPMatrixGPUResource, mesh->WVPMatrixVector.size() * sizeof(float)));
-			CHECK_FAIL(UploadBuffer(mesh->WVPMatrixGPUResource, reinterpret_cast<byte*>(mesh->WVPMatrixVector.data()), mesh->WVPMatrixVector.size() * sizeof(float)));
+			CHECK_FAIL(CreateBufferResource(meshNode.WVPMatrixGPUResource, meshNode.WVPMatrixVector.size() * sizeof(float)));
+			CHECK_FAIL(UploadBuffer(meshNode.WVPMatrixGPUResource, reinterpret_cast<byte*>(meshNode.WVPMatrixVector.data()), meshNode.WVPMatrixVector.size() * sizeof(float)));
 
 			for (int i = 0; i < mesh->Primitives.size(); i++)
 			{
@@ -1013,7 +1017,7 @@ bool Init()
 	fenceValuesCPU[g_frameIndex]++;
 	HRESULT hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
 	PROMPTFAIL(hr, "Failed to signal fence with error ");
-	
+
 	return true;
 }
 
@@ -1030,7 +1034,7 @@ void Cleanup()
 	}
 
 	BOOL isFullscreen = FALSE;
-	if(swapChain)
+	if (swapChain)
 	{
 		if (swapChain->GetFullscreenState(&isFullscreen, NULL))
 		{
@@ -1138,456 +1142,456 @@ void Cleanup()
 
 		PROMPTFAIL(hr, "Failed to create committed resource for texture upload heap");*/
 
-//bool CreateVertexBuffer()
-//{
-//	HRESULT hr;
-//
-//	// CPU side access (via write-combine?)
-//	CD3DX12_HEAP_PROPERTIES verticesUploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-//
-//	// only GPU has accesss
-//	CD3DX12_HEAP_PROPERTIES verticesDefaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-//
-//	/*uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
-//	uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE;
-//	uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;*/
-//
-//	// Can also use CD3DX12_RESOURCE_DESC::Buffer() for a one line alternative
-//	D3D12_RESOURCE_DESC vertexBufferResourceDesc =
-//	{
-//		D3D12_RESOURCE_DIMENSION_BUFFER,  // Dimension
-//		0,  // Alignment
-//		vertexBufferSize,  // Width
-//		1,  // Height
-//		1,  // DepthOrArraySize
-//		1, // MipLevels
-//		DXGI_FORMAT_UNKNOWN,  // Format
-//		{1, 0}, // DXGI_SAMPLE_DESC {Sample Count, Sample Quality)
-//		D3D12_TEXTURE_LAYOUT_ROW_MAJOR,  // Layout
-//		D3D12_RESOURCE_FLAG_NONE // Flags
-//	};
-//
-//	// If this was a render target or depth stencil, we could set this value to the value that the 
-//	// depth/stencil buffer or render target would usually get cleared to. 
-//	// The GPU can do some optimizations to increase the performance of clearing the resource. 
-//	// Our resource is a vertex buffer, so we set this value to nullptr
-//	D3D12_CLEAR_VALUE* clearValue = nullptr;
-//
-//	hr = device->CreateCommittedResource(
-//		&verticesUploadHeapProperties,
-//		D3D12_HEAP_FLAG_NONE,
-//		&vertexBufferResourceDesc,
-//		D3D12_RESOURCE_STATE_GENERIC_READ,
-//		nullptr,
-//		IID_PPV_ARGS(&verticesUploadHeap));
-//
-//	verticesUploadHeap->SetName("Upload Heap Vertex Buffer");
-//
-//	PROMPTFAIL(hr, "Failed to create upload heap resource");
-//
-//	hr = device->CreateCommittedResource(
-//		&verticesDefaultHeapProperties,
-//		D3D12_HEAP_FLAG_NONE,
-//		&vertexBufferResourceDesc,
-//		D3D12_RESOURCE_STATE_COPY_DEST,
-//		nullptr,
-//		IID_PPV_ARGS(&verticesDefaultHeap));
-//
-//	verticesDefaultHeap->SetName("Default Heap Vertex Buffer");
-//
-//	PROMPTFAIL(hr, "Failed to create default heap resource");
-//
-//	D3D12_SUBRESOURCE_DATA subResourceData{};
-//	subResourceData.pData = reinterpret_cast<BYTE*>(vList);
-//	subResourceData.RowPitch = vertexBufferSize;
-//	subResourceData.SlicePitch = vertexBufferSize;
-//
-//	hr = commandList->Reset(commandAllocators[g_frameIndex], nullptr);
-//
-//	PROMPTFAIL(hr, "Failed to reset command list with error ");
-//
-//	UpdateSubresources(commandList, verticesDefaultHeap, verticesUploadHeap, 0, 0, 1, &subResourceData);
-//
-//	D3D12_RESOURCE_BARRIER defaultHeapTransitionBarrier = CD3DX12_RESOURCE_BARRIER::Transition(verticesDefaultHeap,
-//		D3D12_RESOURCE_STATE_COPY_DEST,
-//		D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-//
-//	commandList->ResourceBarrier(1, &defaultHeapTransitionBarrier);
-//
-//	commandList->Close();
-//	ID3D12CommandList* ppCommandList[] = { commandList };
-//	commandQueue->ExecuteCommandLists(_countof(ppCommandList), ppCommandList);
-//
-//	fenceValuesCPU[g_frameIndex]++;
-//	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
-//
-//	PROMPTFAIL(hr, "Failed to set signal for fence during default heap setup");
-//
-//	vertexBufferView.BufferLocation = verticesDefaultHeap->GetGPUVirtualAddress();
-//	vertexBufferView.StrideInBytes = sizeof(Vertex);
-//	vertexBufferView.SizeInBytes = vertexBufferSize;
-//
-//	return true;
-//}
-//
-//bool CreateIndexBuffer()
-//{
-//	DWORD indexBuffer[numVertices];
-//
-//	for (int i = 0; i < numVertices; i++)
-//	{
-//		indexBuffer[i] = i;
-//	}
-//
-//	indexBufferSize = sizeof(indexBuffer);
-//
-//	HRESULT hr;
-//
-//	CD3DX12_HEAP_PROPERTIES uploadHeapDesc = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-//	D3D12_RESOURCE_DESC uploadHeapResourceDesc = D3D12_RESOURCE_DESC();
-//	uploadHeapResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-//	uploadHeapResourceDesc.SampleDesc = { 1,0 };
-//	uploadHeapResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-//	uploadHeapResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-//	uploadHeapResourceDesc.Width = indexBufferSize;
-//	uploadHeapResourceDesc.Height = 1;
-//	uploadHeapResourceDesc.DepthOrArraySize = 1;
-//	uploadHeapResourceDesc.Alignment = 0;
-//	uploadHeapResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-//	uploadHeapResourceDesc.MipLevels = 1;
-//
-//	//D3D12_RESOURCE_DESC uploadHeapResourceDesc2 = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
-//
-//	hr = device->CreateCommittedResource(
-//		&uploadHeapDesc,
-//		D3D12_HEAP_FLAG_NONE,
-//		&uploadHeapResourceDesc,
-//		D3D12_RESOURCE_STATE_GENERIC_READ,
-//		nullptr,
-//		IID_PPV_ARGS(&indicesUploadHeap)
-//	);
-//
-//	indicesUploadHeap->SetName("Upload Heap Index Buffer");
-//
-//	PROMPTFAIL(hr, "Failed to create upload heap for index buffer");
-//
-//	CD3DX12_HEAP_PROPERTIES defaultHeapDesc = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-	//D3D12_RESOURCE_DESC defaultHeapResourceDesc = D3D12_RESOURCE_DESC();
-	//defaultHeapResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	//defaultHeapResourceDesc.SampleDesc = { 1,0 };
-	//defaultHeapResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	//defaultHeapResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	//defaultHeapResourceDesc.Width = indexBufferSize;
-	//defaultHeapResourceDesc.Height = 1;
-	//defaultHeapResourceDesc.DepthOrArraySize = 1;
-	//defaultHeapResourceDesc.Alignment = 0;
-	//defaultHeapResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-	//defaultHeapResourceDesc.MipLevels = 1;
-//
-//	//D3D12_RESOURCE_DESC defaultHeapResourceDesc2 = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
-//
-//	hr = device->CreateCommittedResource(
-//		&defaultHeapDesc,
-//		D3D12_HEAP_FLAG_NONE,
-//		&defaultHeapResourceDesc,
-//		D3D12_RESOURCE_STATE_COPY_DEST,
-//		nullptr,
-//		IID_PPV_ARGS(&indicesDefaultHeap)
-//	);
-//
-//	indicesDefaultHeap->SetName("Default Heap Index Buffer");
-//
-//	PROMPTFAIL(hr, "Failed to create default heap for index buffer");
-//
-//	hr = commandList->Reset(commandAllocators[g_frameIndex], 0);
-//
-//	PROMPTFAIL(hr, "Failed to reset command list when setting up index buffer");
-//
-//	D3D12_SUBRESOURCE_DATA indexBufferSubresourceData{};
-//	indexBufferSubresourceData.pData = reinterpret_cast<BYTE*>(indexBuffer);
-//	indexBufferSubresourceData.RowPitch = indexBufferSize;
-//	indexBufferSubresourceData.SlicePitch = indexBufferSize;
-//
-//	UpdateSubresources(commandList, indicesDefaultHeap, indicesUploadHeap, 0, 0, 1, &indexBufferSubresourceData);
-//
-//	D3D12_RESOURCE_BARRIER defaultHeapIndexBufferBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-//		indicesDefaultHeap,
-//		D3D12_RESOURCE_STATE_COPY_DEST,
-//		D3D12_RESOURCE_STATE_INDEX_BUFFER);
-//	commandList->ResourceBarrier(1, &defaultHeapIndexBufferBarrier);
-//
-//	commandList->Close();
-//
-//	ID3D12CommandList* ppCommandLists[] = { commandList };
-//	commandQueue->ExecuteCommandLists(1, ppCommandLists);
-//
-//	fenceValuesCPU[g_frameIndex]++;
-//	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
-//	PROMPTFAIL(hr, "Failed to signal command list when setting up index buffer");
-//
-//	indexBufferView.BufferLocation = indicesDefaultHeap->GetGPUVirtualAddress();
-//	indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-//	indexBufferView.SizeInBytes = indexBufferSize;
-//
-//	return true;
-//}
+		//bool CreateVertexBuffer()
+		//{
+		//	HRESULT hr;
+		//
+		//	// CPU side access (via write-combine?)
+		//	CD3DX12_HEAP_PROPERTIES verticesUploadHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		//
+		//	// only GPU has accesss
+		//	CD3DX12_HEAP_PROPERTIES verticesDefaultHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+		//
+		//	/*uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+		//	uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE;
+		//	uploadHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;*/
+		//
+		//	// Can also use CD3DX12_RESOURCE_DESC::Buffer() for a one line alternative
+		//	D3D12_RESOURCE_DESC vertexBufferResourceDesc =
+		//	{
+		//		D3D12_RESOURCE_DIMENSION_BUFFER,  // Dimension
+		//		0,  // Alignment
+		//		vertexBufferSize,  // Width
+		//		1,  // Height
+		//		1,  // DepthOrArraySize
+		//		1, // MipLevels
+		//		DXGI_FORMAT_UNKNOWN,  // Format
+		//		{1, 0}, // DXGI_SAMPLE_DESC {Sample Count, Sample Quality)
+		//		D3D12_TEXTURE_LAYOUT_ROW_MAJOR,  // Layout
+		//		D3D12_RESOURCE_FLAG_NONE // Flags
+		//	};
+		//
+		//	// If this was a render target or depth stencil, we could set this value to the value that the 
+		//	// depth/stencil buffer or render target would usually get cleared to. 
+		//	// The GPU can do some optimizations to increase the performance of clearing the resource. 
+		//	// Our resource is a vertex buffer, so we set this value to nullptr
+		//	D3D12_CLEAR_VALUE* clearValue = nullptr;
+		//
+		//	hr = device->CreateCommittedResource(
+		//		&verticesUploadHeapProperties,
+		//		D3D12_HEAP_FLAG_NONE,
+		//		&vertexBufferResourceDesc,
+		//		D3D12_RESOURCE_STATE_GENERIC_READ,
+		//		nullptr,
+		//		IID_PPV_ARGS(&verticesUploadHeap));
+		//
+		//	verticesUploadHeap->SetName("Upload Heap Vertex Buffer");
+		//
+		//	PROMPTFAIL(hr, "Failed to create upload heap resource");
+		//
+		//	hr = device->CreateCommittedResource(
+		//		&verticesDefaultHeapProperties,
+		//		D3D12_HEAP_FLAG_NONE,
+		//		&vertexBufferResourceDesc,
+		//		D3D12_RESOURCE_STATE_COPY_DEST,
+		//		nullptr,
+		//		IID_PPV_ARGS(&verticesDefaultHeap));
+		//
+		//	verticesDefaultHeap->SetName("Default Heap Vertex Buffer");
+		//
+		//	PROMPTFAIL(hr, "Failed to create default heap resource");
+		//
+		//	D3D12_SUBRESOURCE_DATA subResourceData{};
+		//	subResourceData.pData = reinterpret_cast<BYTE*>(vList);
+		//	subResourceData.RowPitch = vertexBufferSize;
+		//	subResourceData.SlicePitch = vertexBufferSize;
+		//
+		//	hr = commandList->Reset(commandAllocators[g_frameIndex], nullptr);
+		//
+		//	PROMPTFAIL(hr, "Failed to reset command list with error ");
+		//
+		//	UpdateSubresources(commandList, verticesDefaultHeap, verticesUploadHeap, 0, 0, 1, &subResourceData);
+		//
+		//	D3D12_RESOURCE_BARRIER defaultHeapTransitionBarrier = CD3DX12_RESOURCE_BARRIER::Transition(verticesDefaultHeap,
+		//		D3D12_RESOURCE_STATE_COPY_DEST,
+		//		D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		//
+		//	commandList->ResourceBarrier(1, &defaultHeapTransitionBarrier);
+		//
+		//	commandList->Close();
+		//	ID3D12CommandList* ppCommandList[] = { commandList };
+		//	commandQueue->ExecuteCommandLists(_countof(ppCommandList), ppCommandList);
+		//
+		//	fenceValuesCPU[g_frameIndex]++;
+		//	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
+		//
+		//	PROMPTFAIL(hr, "Failed to set signal for fence during default heap setup");
+		//
+		//	vertexBufferView.BufferLocation = verticesDefaultHeap->GetGPUVirtualAddress();
+		//	vertexBufferView.StrideInBytes = sizeof(Vertex);
+		//	vertexBufferView.SizeInBytes = vertexBufferSize;
+		//
+		//	return true;
+		//}
+		//
+		//bool CreateIndexBuffer()
+		//{
+		//	DWORD indexBuffer[numVertices];
+		//
+		//	for (int i = 0; i < numVertices; i++)
+		//	{
+		//		indexBuffer[i] = i;
+		//	}
+		//
+		//	indexBufferSize = sizeof(indexBuffer);
+		//
+		//	HRESULT hr;
+		//
+		//	CD3DX12_HEAP_PROPERTIES uploadHeapDesc = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+		//	D3D12_RESOURCE_DESC uploadHeapResourceDesc = D3D12_RESOURCE_DESC();
+		//	uploadHeapResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		//	uploadHeapResourceDesc.SampleDesc = { 1,0 };
+		//	uploadHeapResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		//	uploadHeapResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		//	uploadHeapResourceDesc.Width = indexBufferSize;
+		//	uploadHeapResourceDesc.Height = 1;
+		//	uploadHeapResourceDesc.DepthOrArraySize = 1;
+		//	uploadHeapResourceDesc.Alignment = 0;
+		//	uploadHeapResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		//	uploadHeapResourceDesc.MipLevels = 1;
+		//
+		//	//D3D12_RESOURCE_DESC uploadHeapResourceDesc2 = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
+		//
+		//	hr = device->CreateCommittedResource(
+		//		&uploadHeapDesc,
+		//		D3D12_HEAP_FLAG_NONE,
+		//		&uploadHeapResourceDesc,
+		//		D3D12_RESOURCE_STATE_GENERIC_READ,
+		//		nullptr,
+		//		IID_PPV_ARGS(&indicesUploadHeap)
+		//	);
+		//
+		//	indicesUploadHeap->SetName("Upload Heap Index Buffer");
+		//
+		//	PROMPTFAIL(hr, "Failed to create upload heap for index buffer");
+		//
+		//	CD3DX12_HEAP_PROPERTIES defaultHeapDesc = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+			//D3D12_RESOURCE_DESC defaultHeapResourceDesc = D3D12_RESOURCE_DESC();
+			//defaultHeapResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			//defaultHeapResourceDesc.SampleDesc = { 1,0 };
+			//defaultHeapResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+			//defaultHeapResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+			//defaultHeapResourceDesc.Width = indexBufferSize;
+			//defaultHeapResourceDesc.Height = 1;
+			//defaultHeapResourceDesc.DepthOrArraySize = 1;
+			//defaultHeapResourceDesc.Alignment = 0;
+			//defaultHeapResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+			//defaultHeapResourceDesc.MipLevels = 1;
+		//
+		//	//D3D12_RESOURCE_DESC defaultHeapResourceDesc2 = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
+		//
+		//	hr = device->CreateCommittedResource(
+		//		&defaultHeapDesc,
+		//		D3D12_HEAP_FLAG_NONE,
+		//		&defaultHeapResourceDesc,
+		//		D3D12_RESOURCE_STATE_COPY_DEST,
+		//		nullptr,
+		//		IID_PPV_ARGS(&indicesDefaultHeap)
+		//	);
+		//
+		//	indicesDefaultHeap->SetName("Default Heap Index Buffer");
+		//
+		//	PROMPTFAIL(hr, "Failed to create default heap for index buffer");
+		//
+		//	hr = commandList->Reset(commandAllocators[g_frameIndex], 0);
+		//
+		//	PROMPTFAIL(hr, "Failed to reset command list when setting up index buffer");
+		//
+		//	D3D12_SUBRESOURCE_DATA indexBufferSubresourceData{};
+		//	indexBufferSubresourceData.pData = reinterpret_cast<BYTE*>(indexBuffer);
+		//	indexBufferSubresourceData.RowPitch = indexBufferSize;
+		//	indexBufferSubresourceData.SlicePitch = indexBufferSize;
+		//
+		//	UpdateSubresources(commandList, indicesDefaultHeap, indicesUploadHeap, 0, 0, 1, &indexBufferSubresourceData);
+		//
+		//	D3D12_RESOURCE_BARRIER defaultHeapIndexBufferBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		//		indicesDefaultHeap,
+		//		D3D12_RESOURCE_STATE_COPY_DEST,
+		//		D3D12_RESOURCE_STATE_INDEX_BUFFER);
+		//	commandList->ResourceBarrier(1, &defaultHeapIndexBufferBarrier);
+		//
+		//	commandList->Close();
+		//
+		//	ID3D12CommandList* ppCommandLists[] = { commandList };
+		//	commandQueue->ExecuteCommandLists(1, ppCommandLists);
+		//
+		//	fenceValuesCPU[g_frameIndex]++;
+		//	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
+		//	PROMPTFAIL(hr, "Failed to signal command list when setting up index buffer");
+		//
+		//	indexBufferView.BufferLocation = indicesDefaultHeap->GetGPUVirtualAddress();
+		//	indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+		//	indexBufferView.SizeInBytes = indexBufferSize;
+		//
+		//	return true;
+		//}
 
-// Describes our vertices inside the vertex buffer to the input assembler.
-// (Can also be used to describe indices of the vertices via an index buffer
-//bool CreateInputLayout()
-//{
-//	//D3D12_INPUT_ELEMENT_DESC inputElementDesc[1];
-//	//inputElementDesc[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-//	//inputElementDesc[0].SemanticName = "POSITION";
-//	//
-//	//// 0 is the first slot. 
-//	//// You may bind multiple vertex buffers to the input assembler. 
-//	//// Each vertex buffer is bound to a slot.
-//	//inputElementDesc[0].InputSlot = 0;
-//
-//	//inputElementDesc[0].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-//	//
-//	//// Number of instances to draw before going to the next element
-//	//// Since we set our input slot class to be PER_VERTEX_DATA, this will be 0
-//	//inputElementDesc[0].InstanceDataStepRate = 0;
-//
-//	//// This is the offset in bytes from the beginning of the vertex structure to the start of this attribute. 
-//	//// The first attribute will always be 0 here. 
-//	//// We only have one attribute, position, so we set this to 0. 
-//	//// But if we had another, like "COLOR", 
-//	//// then we will need to set this to 12 for the color element. 
-//	//// because we have 3 floats for the position, each of them is 4 bytes, so 4x3 is 12. 
-//	//inputElementDesc[0].AlignedByteOffset = 0;
-//
-//	inputLayoutList[0] = { 
-//		"POSITION", 
-//		0, 
-//		DXGI_FORMAT_R32G32B32_FLOAT, 
-//		0, 
-//		0, 
-//		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 
-//		0 };
-//	
-//	inputLayoutList[1].SemanticName = "COLOR";
-//	inputLayoutList[1].AlignedByteOffset = 12;
-//	inputLayoutList[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-//	inputLayoutList[1].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-//
-//	inputLayoutList[2].SemanticName = "TEXCOORD";
-//	inputLayoutList[2].AlignedByteOffset = 28;
-//	inputLayoutList[2].Format = DXGI_FORMAT_R32G32_FLOAT;
-//	inputLayoutList[2].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-//
-//	// we can get the number of elements in an array by "sizeof(array) / sizeof(arrayElementType)"
-//	inputLayout.NumElements = sizeof(inputLayoutList) / sizeof(D3D12_INPUT_ELEMENT_DESC);
-//	inputLayout.pInputElementDescs = inputLayoutList;
-//
-//	return true;
-//}
-//byte colorRand = 0;
-//int rowRand = 0;
-//byte* subArray;
-//void SetTextures()
-//{
-//	colorRand = std::rand() % 256;
-//	rowRand = std::rand() % (texHeight);
-//	//std::cout << std::to_string(indexRand) << " with color " << std::to_string(colorRand) << "\n";
-//	//paddedTextureBuffer[indexRand] = colorRand;
-//
-//	//memset(&paddedTextureBuffer[indexRand], colorRand, 256);
-//
-//	PIXBeginEvent(PIX_COLOR_DEFAULT, "Memset & padding");
-//	textureBox.top = rowRand;
-//	textureBox.bottom = rowRand + 1;
-//	memset(&textureBuffer[rowRand * texWidth * numChannels], colorRand, texWidth * numChannels);
-//	memcpy(&subArray[0], &textureBuffer[rowRand * texWidth * numChannels], texWidth * numChannels);
-//	//memcpy(&paddedTextureBuffer[rowPitch * rowRand], &textureBuffer[rowRand * texWidth * numChannels], texWidth * numChannels);
-//	PIXEndEvent();
-//	/*colorRand++;
-//
-//	if (colorRand >= 255)
-//	{
-//		colorRand = colorRand % 255;
-//	}*/
-//}
+		// Describes our vertices inside the vertex buffer to the input assembler.
+		// (Can also be used to describe indices of the vertices via an index buffer
+		//bool CreateInputLayout()
+		//{
+		//	//D3D12_INPUT_ELEMENT_DESC inputElementDesc[1];
+		//	//inputElementDesc[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		//	//inputElementDesc[0].SemanticName = "POSITION";
+		//	//
+		//	//// 0 is the first slot. 
+		//	//// You may bind multiple vertex buffers to the input assembler. 
+		//	//// Each vertex buffer is bound to a slot.
+		//	//inputElementDesc[0].InputSlot = 0;
+		//
+		//	//inputElementDesc[0].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		//	//
+		//	//// Number of instances to draw before going to the next element
+		//	//// Since we set our input slot class to be PER_VERTEX_DATA, this will be 0
+		//	//inputElementDesc[0].InstanceDataStepRate = 0;
+		//
+		//	//// This is the offset in bytes from the beginning of the vertex structure to the start of this attribute. 
+		//	//// The first attribute will always be 0 here. 
+		//	//// We only have one attribute, position, so we set this to 0. 
+		//	//// But if we had another, like "COLOR", 
+		//	//// then we will need to set this to 12 for the color element. 
+		//	//// because we have 3 floats for the position, each of them is 4 bytes, so 4x3 is 12. 
+		//	//inputElementDesc[0].AlignedByteOffset = 0;
+		//
+		//	inputLayoutList[0] = { 
+		//		"POSITION", 
+		//		0, 
+		//		DXGI_FORMAT_R32G32B32_FLOAT, 
+		//		0, 
+		//		0, 
+		//		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 
+		//		0 };
+		//	
+		//	inputLayoutList[1].SemanticName = "COLOR";
+		//	inputLayoutList[1].AlignedByteOffset = 12;
+		//	inputLayoutList[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+		//	inputLayoutList[1].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		//
+		//	inputLayoutList[2].SemanticName = "TEXCOORD";
+		//	inputLayoutList[2].AlignedByteOffset = 28;
+		//	inputLayoutList[2].Format = DXGI_FORMAT_R32G32_FLOAT;
+		//	inputLayoutList[2].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+		//
+		//	// we can get the number of elements in an array by "sizeof(array) / sizeof(arrayElementType)"
+		//	inputLayout.NumElements = sizeof(inputLayoutList) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+		//	inputLayout.pInputElementDescs = inputLayoutList;
+		//
+		//	return true;
+		//}
+		//byte colorRand = 0;
+		//int rowRand = 0;
+		//byte* subArray;
+		//void SetTextures()
+		//{
+		//	colorRand = std::rand() % 256;
+		//	rowRand = std::rand() % (texHeight);
+		//	//std::cout << std::to_string(indexRand) << " with color " << std::to_string(colorRand) << "\n";
+		//	//paddedTextureBuffer[indexRand] = colorRand;
+		//
+		//	//memset(&paddedTextureBuffer[indexRand], colorRand, 256);
+		//
+		//	PIXBeginEvent(PIX_COLOR_DEFAULT, "Memset & padding");
+		//	textureBox.top = rowRand;
+		//	textureBox.bottom = rowRand + 1;
+		//	memset(&textureBuffer[rowRand * texWidth * numChannels], colorRand, texWidth * numChannels);
+		//	memcpy(&subArray[0], &textureBuffer[rowRand * texWidth * numChannels], texWidth * numChannels);
+		//	//memcpy(&paddedTextureBuffer[rowPitch * rowRand], &textureBuffer[rowRand * texWidth * numChannels], texWidth * numChannels);
+		//	PIXEndEvent();
+		//	/*colorRand++;
+		//
+		//	if (colorRand >= 255)
+		//	{
+		//		colorRand = colorRand % 255;
+		//	}*/
+		//}
 
-//void InitTextures()
-//{
-//	textureBuffer = new byte[textureBufferSize];
-//	paddedTextureBuffer = new byte[paddedTextureBufferSize];
-//	subArray = new byte[texWidth * numChannels];
-//	std::srand(std::time(nullptr));
-//
-//	int currentPixel = 0;
-//	for (int i = 0; i < textureBufferSize - 4; i += 4)
-//	{
-//		bool isEven = (currentPixel % 2 == 0);
-//		byte color = isEven ? 255 : 0;
-//		textureBuffer[i + 0] = color; //i
-//		textureBuffer[i + 1] = color; //i
-//		textureBuffer[i + 2] = color; //i
-//		textureBuffer[i + 3] = 255;
-//		currentPixel++;
-//	}
-//
-//	for (int row = 0; row < texHeight; row++)
-//	{
-//		memcpy(&paddedTextureBuffer[rowPitch * row], &textureBuffer[row * texWidth * numChannels], texWidth * numChannels);
-//	}
-//
-//	SetTextures();
-//}
-//
-//bool InitTextureResources()
-//{
-//	HRESULT hr;
-//
-//	D3D12_HEAP_PROPERTIES textureUploadHeapProperties{ D3D12_HEAP_TYPE_UPLOAD };
-//
-//	DXGI_SAMPLE_DESC sampleDesc{};
-//	sampleDesc.Count = 1;
-//	sampleDesc.Quality = 0;
-//
-//	D3D12_RESOURCE_DESC textureUploadResourceDesc{};
-//	textureUploadResourceDesc.Alignment = 0;
-//	textureUploadResourceDesc.Width = paddedTextureBufferSize;
-//	textureUploadResourceDesc.Height = 1;
-//	textureUploadResourceDesc.DepthOrArraySize = 1;
-//	textureUploadResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-//	textureUploadResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-//	textureUploadResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-//	textureUploadResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-//	textureUploadResourceDesc.MipLevels = 1;
-//	textureUploadResourceDesc.SampleDesc = sampleDesc;
-//
-//	hr = device->CreateCommittedResource(
-//		&textureUploadHeapProperties,
-//		D3D12_HEAP_FLAG_NONE,
-//		&textureUploadResourceDesc,
-//		D3D12_RESOURCE_STATE_COMMON,
-//		nullptr,
-//		IID_PPV_ARGS(&textureUploadHeap));
-//
-//	PROMPTFAIL(hr, "Failed to create committed texture upload resource");
-//
-//	D3D12_HEAP_PROPERTIES textureDefaultHeapProperties{};
-//#ifdef USE_BAR
-//	textureDefaultHeapProperties.Type = D3D12_HEAP_TYPE_GPU_UPLOAD;
-//#else
-//	textureDefaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-//#endif
-//
-//	D3D12_RESOURCE_DESC textureDefaultResourceDesc{};
-//	textureDefaultResourceDesc.Alignment = 0;
-//	textureDefaultResourceDesc.DepthOrArraySize = 1;
-//	textureDefaultResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-//	textureDefaultResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-//	textureDefaultResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-//	textureDefaultResourceDesc.Height = texHeight;
-//	textureDefaultResourceDesc.Width = texWidth;
-//	textureDefaultResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-//	textureDefaultResourceDesc.MipLevels = 1;
-//	textureDefaultResourceDesc.SampleDesc = sampleDesc;
-//
-//	hr = device->CreateCommittedResource(
-//		&textureDefaultHeapProperties,
-//		D3D12_HEAP_FLAG_NONE,
-//		&textureDefaultResourceDesc,
-//		D3D12_RESOURCE_STATE_COMMON,
-//		nullptr,
-//		IID_PPV_ARGS(&textureDefaultHeap));
-//
-//	PROMPTFAIL(hr, "Failed to create committed texture default resource");
-//
-//	return true;
-//}
-//
-//bool UploadTextureBAR()
-//{
-	//textureDefaultHeap->Map(0, nullptr, nullptr);
-	////HRESULT hr = textureDefaultHeap->WriteToSubresource(0, &textureBox, paddedTextureBuffer, rowPitch, 1);
-	//HRESULT hr = textureDefaultHeap->WriteToSubresource(0, &textureBox, subArray, rowPitch, 1);
-	//textureDefaultHeap->Unmap(0, nullptr);
-//	PROMPTFAIL(hr, "Failed to directly write to subresource from CPU to GPU");
-//	return true;
-//}
-//
-//bool UploadTexture()
-//{
-//	HRESULT hr;
-//
-//	BYTE* pTextureUploadHeap{};
-//	textureUploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&pTextureUploadHeap));
-//
-//	memcpy(pTextureUploadHeap, paddedTextureBuffer, paddedTextureBufferSize);
-//
-//	textureUploadHeap->Unmap(0, nullptr);
-//
-//	//---------------Texture Src (buffer) Footprints------------------------
-//	D3D12_SUBRESOURCE_FOOTPRINT textureSrcFootprint{};
-//	textureSrcFootprint.Depth = 1;
-//	textureSrcFootprint.Width = texWidth;
-//	textureSrcFootprint.Height = texHeight;
-//	textureSrcFootprint.RowPitch = rowPitch;
-//	textureSrcFootprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-//
-//	D3D12_PLACED_SUBRESOURCE_FOOTPRINT textureSrcPlacedFootprint{};
-//	textureSrcPlacedFootprint.Footprint = textureSrcFootprint;
-//	textureSrcPlacedFootprint.Offset = 0;
-//
-//	D3D12_TEXTURE_COPY_LOCATION textureSrcCopyLocation{};
-//	textureSrcCopyLocation.PlacedFootprint = textureSrcPlacedFootprint;
-//	textureSrcCopyLocation.pResource = textureUploadHeap;
-//	textureSrcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-//
-//	D3D12_TEXTURE_COPY_LOCATION textureDstCopyLocation{};
-//	textureDstCopyLocation.SubresourceIndex = 0;
-//	textureDstCopyLocation.pResource = textureDefaultHeap;
-//	textureDstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-//
-//	//commandList->Reset(commandAllocators[g_frameIndex], pipelineStateObject);
-//
-//	commandList->CopyTextureRegion(&textureDstCopyLocation, 0, 0, 0, &textureSrcCopyLocation, nullptr);
-//
-//	//commandList->Close();
-//
-//	/*ID3D12CommandList* ppCommandLists[] = { commandList };
-//	commandQueue->ExecuteCommandLists(1, ppCommandLists);
-//	fenceValuesCPU[g_frameIndex]++;
-//	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
-//
-//	PROMPTFAIL(hr, "Failed to set signal for texture upload");*/
-//
-//	//----- SRV for Texture in Default Heap--------------
-//
-//	return true;
-//}
-//
-//bool CreateTextureResourceView()
-//{
-//	D3D12_TEX2D_SRV textureBufferSRV{};
-//	textureBufferSRV.MipLevels = 1;
-//
-//	D3D12_SHADER_RESOURCE_VIEW_DESC textureResourceViewDesc{};
-//	textureResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-//	textureResourceViewDesc.Texture2D = textureBufferSRV;
-//	textureResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-//	textureResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-//
-//	D3D12_DESCRIPTOR_HEAP_DESC textureSrvDescriptorHeapDesc{};
-//	textureSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-//	textureSrvDescriptorHeapDesc.NodeMask = 0;
-//	textureSrvDescriptorHeapDesc.NumDescriptors = 1;
-//	textureSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-//
-//	HRESULT hr = device->CreateDescriptorHeap(&textureSrvDescriptorHeapDesc, IID_PPV_ARGS(&textureSRVDescriptorHeap));
-//
-//	PROMPTFAIL(hr, "Failed to create texture SRV descriptor heap");
-//
-//	device->CreateShaderResourceView(
-//		textureDefaultHeap,
-//		&textureResourceViewDesc,
-//		textureSRVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-//
-//	return true;
-//}
+		//void InitTextures()
+		//{
+		//	textureBuffer = new byte[textureBufferSize];
+		//	paddedTextureBuffer = new byte[paddedTextureBufferSize];
+		//	subArray = new byte[texWidth * numChannels];
+		//	std::srand(std::time(nullptr));
+		//
+		//	int currentPixel = 0;
+		//	for (int i = 0; i < textureBufferSize - 4; i += 4)
+		//	{
+		//		bool isEven = (currentPixel % 2 == 0);
+		//		byte color = isEven ? 255 : 0;
+		//		textureBuffer[i + 0] = color; //i
+		//		textureBuffer[i + 1] = color; //i
+		//		textureBuffer[i + 2] = color; //i
+		//		textureBuffer[i + 3] = 255;
+		//		currentPixel++;
+		//	}
+		//
+		//	for (int row = 0; row < texHeight; row++)
+		//	{
+		//		memcpy(&paddedTextureBuffer[rowPitch * row], &textureBuffer[row * texWidth * numChannels], texWidth * numChannels);
+		//	}
+		//
+		//	SetTextures();
+		//}
+		//
+		//bool InitTextureResources()
+		//{
+		//	HRESULT hr;
+		//
+		//	D3D12_HEAP_PROPERTIES textureUploadHeapProperties{ D3D12_HEAP_TYPE_UPLOAD };
+		//
+		//	DXGI_SAMPLE_DESC sampleDesc{};
+		//	sampleDesc.Count = 1;
+		//	sampleDesc.Quality = 0;
+		//
+		//	D3D12_RESOURCE_DESC textureUploadResourceDesc{};
+		//	textureUploadResourceDesc.Alignment = 0;
+		//	textureUploadResourceDesc.Width = paddedTextureBufferSize;
+		//	textureUploadResourceDesc.Height = 1;
+		//	textureUploadResourceDesc.DepthOrArraySize = 1;
+		//	textureUploadResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		//	textureUploadResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		//	textureUploadResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		//	textureUploadResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		//	textureUploadResourceDesc.MipLevels = 1;
+		//	textureUploadResourceDesc.SampleDesc = sampleDesc;
+		//
+		//	hr = device->CreateCommittedResource(
+		//		&textureUploadHeapProperties,
+		//		D3D12_HEAP_FLAG_NONE,
+		//		&textureUploadResourceDesc,
+		//		D3D12_RESOURCE_STATE_COMMON,
+		//		nullptr,
+		//		IID_PPV_ARGS(&textureUploadHeap));
+		//
+		//	PROMPTFAIL(hr, "Failed to create committed texture upload resource");
+		//
+		//	D3D12_HEAP_PROPERTIES textureDefaultHeapProperties{};
+		//#ifdef USE_BAR
+		//	textureDefaultHeapProperties.Type = D3D12_HEAP_TYPE_GPU_UPLOAD;
+		//#else
+		//	textureDefaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+		//#endif
+		//
+		//	D3D12_RESOURCE_DESC textureDefaultResourceDesc{};
+		//	textureDefaultResourceDesc.Alignment = 0;
+		//	textureDefaultResourceDesc.DepthOrArraySize = 1;
+		//	textureDefaultResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		//	textureDefaultResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		//	textureDefaultResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		//	textureDefaultResourceDesc.Height = texHeight;
+		//	textureDefaultResourceDesc.Width = texWidth;
+		//	textureDefaultResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		//	textureDefaultResourceDesc.MipLevels = 1;
+		//	textureDefaultResourceDesc.SampleDesc = sampleDesc;
+		//
+		//	hr = device->CreateCommittedResource(
+		//		&textureDefaultHeapProperties,
+		//		D3D12_HEAP_FLAG_NONE,
+		//		&textureDefaultResourceDesc,
+		//		D3D12_RESOURCE_STATE_COMMON,
+		//		nullptr,
+		//		IID_PPV_ARGS(&textureDefaultHeap));
+		//
+		//	PROMPTFAIL(hr, "Failed to create committed texture default resource");
+		//
+		//	return true;
+		//}
+		//
+		//bool UploadTextureBAR()
+		//{
+			//textureDefaultHeap->Map(0, nullptr, nullptr);
+			////HRESULT hr = textureDefaultHeap->WriteToSubresource(0, &textureBox, paddedTextureBuffer, rowPitch, 1);
+			//HRESULT hr = textureDefaultHeap->WriteToSubresource(0, &textureBox, subArray, rowPitch, 1);
+			//textureDefaultHeap->Unmap(0, nullptr);
+		//	PROMPTFAIL(hr, "Failed to directly write to subresource from CPU to GPU");
+		//	return true;
+		//}
+		//
+		//bool UploadTexture()
+		//{
+		//	HRESULT hr;
+		//
+		//	BYTE* pTextureUploadHeap{};
+		//	textureUploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&pTextureUploadHeap));
+		//
+		//	memcpy(pTextureUploadHeap, paddedTextureBuffer, paddedTextureBufferSize);
+		//
+		//	textureUploadHeap->Unmap(0, nullptr);
+		//
+		//	//---------------Texture Src (buffer) Footprints------------------------
+		//	D3D12_SUBRESOURCE_FOOTPRINT textureSrcFootprint{};
+		//	textureSrcFootprint.Depth = 1;
+		//	textureSrcFootprint.Width = texWidth;
+		//	textureSrcFootprint.Height = texHeight;
+		//	textureSrcFootprint.RowPitch = rowPitch;
+		//	textureSrcFootprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		//
+		//	D3D12_PLACED_SUBRESOURCE_FOOTPRINT textureSrcPlacedFootprint{};
+		//	textureSrcPlacedFootprint.Footprint = textureSrcFootprint;
+		//	textureSrcPlacedFootprint.Offset = 0;
+		//
+		//	D3D12_TEXTURE_COPY_LOCATION textureSrcCopyLocation{};
+		//	textureSrcCopyLocation.PlacedFootprint = textureSrcPlacedFootprint;
+		//	textureSrcCopyLocation.pResource = textureUploadHeap;
+		//	textureSrcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		//
+		//	D3D12_TEXTURE_COPY_LOCATION textureDstCopyLocation{};
+		//	textureDstCopyLocation.SubresourceIndex = 0;
+		//	textureDstCopyLocation.pResource = textureDefaultHeap;
+		//	textureDstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		//
+		//	//commandList->Reset(commandAllocators[g_frameIndex], pipelineStateObject);
+		//
+		//	commandList->CopyTextureRegion(&textureDstCopyLocation, 0, 0, 0, &textureSrcCopyLocation, nullptr);
+		//
+		//	//commandList->Close();
+		//
+		//	/*ID3D12CommandList* ppCommandLists[] = { commandList };
+		//	commandQueue->ExecuteCommandLists(1, ppCommandLists);
+		//	fenceValuesCPU[g_frameIndex]++;
+		//	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
+		//
+		//	PROMPTFAIL(hr, "Failed to set signal for texture upload");*/
+		//
+		//	//----- SRV for Texture in Default Heap--------------
+		//
+		//	return true;
+		//}
+		//
+		//bool CreateTextureResourceView()
+		//{
+		//	D3D12_TEX2D_SRV textureBufferSRV{};
+		//	textureBufferSRV.MipLevels = 1;
+		//
+		//	D3D12_SHADER_RESOURCE_VIEW_DESC textureResourceViewDesc{};
+		//	textureResourceViewDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		//	textureResourceViewDesc.Texture2D = textureBufferSRV;
+		//	textureResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		//	textureResourceViewDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		//
+		//	D3D12_DESCRIPTOR_HEAP_DESC textureSrvDescriptorHeapDesc{};
+		//	textureSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		//	textureSrvDescriptorHeapDesc.NodeMask = 0;
+		//	textureSrvDescriptorHeapDesc.NumDescriptors = 1;
+		//	textureSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		//
+		//	HRESULT hr = device->CreateDescriptorHeap(&textureSrvDescriptorHeapDesc, IID_PPV_ARGS(&textureSRVDescriptorHeap));
+		//
+		//	PROMPTFAIL(hr, "Failed to create texture SRV descriptor heap");
+		//
+		//	device->CreateShaderResourceView(
+		//		textureDefaultHeap,
+		//		&textureResourceViewDesc,
+		//		textureSRVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+		//
+		//	return true;
+		//}
