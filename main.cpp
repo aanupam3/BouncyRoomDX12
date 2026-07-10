@@ -745,7 +745,7 @@ bool CreateBufferResource(ID3D12Resource*& bufferResource, size_t bufferSize)
 		nullptr,
 		IID_PPV_ARGS(&bufferResource));
 
-	std::cout << "Buffer resource when creating: " << bufferResource << "\n";
+	//std::cout << "Buffer resource when creating: " << bufferResource << "\n";
 	PROMPTFAIL(hr, "Failed to create buffer resource");
 
 	return true;
@@ -920,8 +920,8 @@ bool Init()
 		0.0f
 	);
 	DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
-	std::cout << "\nCamera matrix is:";
-	Utils::printMatrix(cameraWorldMatrix);
+	/*std::cout << "\nCamera matrix is:";
+	Utils::printMatrix(cameraWorldMatrix);*/
 	/*const DirectX::XMMATRIX cameraWorldMatrix
 	{
 		0.7f, 0.7f, 0.0f, 0.0f,
@@ -960,13 +960,16 @@ bool Init()
 		//if (!model->UploadModelBinary(device, commandList)) { return false; }
 		const ModelBinData* modelBinData = model->GetBinData();
 		CHECK_FAIL(CreateBufferResource(model->ModelBinResource, modelBinData->binDataSize));
-		std::cout << "Buffer resource after creating: " << model->ModelBinResource << "\n";
+		//std::cout << "Buffer resource after creating: " << model->ModelBinResource << "\n";
 		CHECK_FAIL(UploadBuffer(model->ModelBinResource, modelBinData->binData, modelBinData->binDataSize));
 
 		model->SetData();
 
-		oakTreeModel->RotateByDegrees(-90, 0, 0);
-		oakTreeModel->TranslateBy(0.0f, -10.0f, 50.0f);
+		oakTreeModel->SetWorldPosition(0.0f, -10.0f, 50.0f);
+		oakTreeModel->SetWorldRotationDegrees(-90, 0, 0);
+		oakTreeModel->SetWorldScale(2.0f);
+
+		oakTreeModel->ScaleBy(0.5f, 0.5f, 0.5f);
 
 		for (Mesh* mesh : modelMeshes)
 		{
@@ -977,8 +980,8 @@ bool Init()
 
 			Node& meshNode = *(mesh->MeshNode);
 
-			std::cout << "\World Space Transform matrix :";
-			Utils::printMatrix(meshNode.WorldSpaceTransformMatrix);
+			/*std::cout << "\World Space Transform matrix :";
+			Utils::printMatrix(meshNode.WorldSpaceTransformMatrix);*/
 
 			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(meshNode.WorldSpaceTransformMatrix, vpMatrix) };
 			model->SetWVPMatrixForMesh(mesh, wvpMatrix);

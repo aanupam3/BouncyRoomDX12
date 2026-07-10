@@ -103,9 +103,16 @@ private:
 	std::vector<Mesh*> m_meshes{};
 	std::vector<Node*> m_nodes{};
 
+	DirectX::XMFLOAT3 m_worldPosition{ 0,0,0 };
+	DirectX::XMFLOAT3 m_worldRotationRadians{ 0,0,0 };
+	DirectX::XMFLOAT3 m_worldScale{ 1,1,1 };
+
+	DirectX::XMMATRIX worldTranslationMatrix{};
+	DirectX::XMMATRIX worldRotationMatrix{};
+	DirectX::XMMATRIX worldScalingMatrix{};
+
 	void ExtractDataFromGLTF();
 	void SetNodes();
-	void UpdateNodeWorldSpace(Node* node);
 	void UpdateAllNodesWorldSpace();
 	void SetMeshes();
 	void SetMeshVertexBufferViews(int meshIndex);
@@ -121,14 +128,23 @@ public:
 	std::string Name;
 	UINT NumMeshes;
 
+	const void SetWorldPosition(float x, float y, float z);
+	const void SetWorldRotationDegrees(float x, float y, float z);
+	const void SetWorldScale(float scale);
+	const void SetWorldScale(float x, float y, float z);
+
 	void TranslateBy(float x, float y, float z);
 	void RotateByDegrees(float x, float y, float z);
+	void ScaleBy(float x, float y, float z);
 
 	// getters
 	const ModelGLTF::ModelJson* GetModelJson() const { return m_modelJson; }
 	const ModelBinData* GetBinData() const { return m_binData; }
 	const std::vector<Mesh*>& GetMeshes() const { return m_meshes; }
 	const std::vector<Node*>& GetNodes() const { return m_nodes; }
+	const DirectX::XMFLOAT3& GetWorldPosition() const { return m_worldPosition; }
+	const DirectX::XMFLOAT3& GetWorldRotationDegrees() const { return m_worldRotationRadians; }
+	const DirectX::XMFLOAT3& GetWorldScale() const { return m_worldScale; }
 
 	void SetWVPMatrixForMesh(Mesh* mesh, DirectX::XMMATRIX& newWVPMatrix);
 

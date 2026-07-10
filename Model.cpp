@@ -78,10 +78,9 @@ void Model::ExtractDataFromGLTF()
 	//Utils::LoadBinaryData(m_binPath, m_binData->binData, binFileSize);
 
 	std::ifstream binFile{ m_binPath, std::ios::binary };
-	if (binFile.is_open()) { std::cout << "Found binary!\n"; }
-	else
+	if (!binFile.is_open())
 	{
-		std::cout << "Did not find binary!\n";
+		std::cout << "Did not find binary at " << m_binPath << "!\n";
 		return;
 	}
 
@@ -163,8 +162,8 @@ void Model::SetMeshVertexBufferViews(int meshIndex)
 			inputLayoutElement.InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
 			inputLayoutElement.SemanticName = meshPrimitive->AttributeNames[attributeIndex].c_str();
 			inputLayoutElement.SemanticIndex = semanticIndex;
-			std::cout << "Attribute semantic name: " << meshPrimitive->AttributeNames[attributeIndex]
-				<< ", semantic index: " << semanticIndex << "\n";
+			/*std::cout << "Attribute semantic name: " << meshPrimitive->AttributeNames[attributeIndex]
+				<< ", semantic index: " << semanticIndex << "\n";*/
 
 			std::string& attributeType = attributeAccessor.type;
 			if (attributeType == "VEC4") { inputLayoutElement.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; }
@@ -251,7 +250,7 @@ void Model::SetMeshTextures(int meshIndex)
 			ModelGLTF::Image texImage = m_modelJson->images[imgIndex];
 
 			std::string texPath = m_modelBasePath + texImage.uri;
-			std::cout << "\nTexture image path: " << texPath;
+			//std::cout << "\nTexture image path: " << texPath;
 
 			Texture* texture = new Texture();
 			int tempWidth{};
@@ -266,7 +265,7 @@ void Model::SetMeshTextures(int meshIndex)
 			texture->TexBox = { 0, 0, 0, texture->Width, texture->Height, 1 };
 			texture->Path = texPath;
 
-			std::cout << "\nTexture dimensions: (" << texture->Width << "," << texture->Height << "), numChannels:" << texture->NumChannels << "\n";
+			//std::cout << "\nTexture dimensions: (" << texture->Width << "," << texture->Height << "), numChannels:" << texture->NumChannels << "\n";
 			meshPrimitive->Textures.push_back(texture);
 		}
 	}
@@ -287,14 +286,14 @@ void Model::SetMeshShaders(Mesh* mesh)
 		// TODO: Make generic for any type of shader
 		Shader vertexShader{};
 		vertexShader.BinPath = mesh->Name + "_VertexShader.cso";
-		std::cout << "\nVertex Shader path: " << vertexShader.BinPath << "\n";
+		//std::cout << "\nVertex Shader path: " << vertexShader.BinPath << "\n";
 		vertexShader.Type = ShaderType::VERTEX;
 		Utils::LoadBinaryData(vertexShader.BinPath, vertexShader.BinData, vertexShader.BinSize);
 		meshPrimitive->Shaders.push_back(vertexShader);
 
 		Shader pixelShader{};
 		pixelShader.BinPath = mesh->Name + "_PixelShader.cso";
-		std::cout << "\Pixel Shader path: " << pixelShader.BinPath << "\n";
+		//std::cout << "\Pixel Shader path: " << pixelShader.BinPath << "\n";
 		pixelShader.Type = ShaderType::PIXEL;
 		Utils::LoadBinaryData(pixelShader.BinPath, pixelShader.BinData, pixelShader.BinSize);
 		meshPrimitive->Shaders.push_back(pixelShader);
@@ -322,6 +321,22 @@ void Model::SetNodes()
 		m_nodes.push_back(node);
 	}
 
+	DirectX::XMVECTOR worldTranslationVector = DirectX::XMLoadFloat3(&m_worldPosition);
+	worldTranslationMatrix = DirectX::XMMatrixTranslationFromVector(worldTranslationVector);
+
+	DirectX::XMVECTOR worldRotationVector = DirectX::XMLoadFloat3(&m_worldRotationRadians);
+	worldRotationMatrix = DirectX::XMMatrixTranslationFromVector(worldRotationVector);
+
+	DirectX::XMVECTOR worldScalingVector = DirectX::XMLoadFloat3(&m_worldScale);
+	worldScalingMatrix = DirectX::XMMatrixTranslationFromVector(worldScalingVector);
+
+	DirectX::XMMATRIX worldTransformMatrix
+		= worldScalingMatrix * worldRotationMatrix * worldTranslationMatrix;
+
+	/*SetWorldPosition(0, 0, 0);
+	SetWorldRotationDegrees(0, 0, 0);
+	SetWorldScale(1, 1, 1);*/
+
 	// Set relationships to other nodes once all nodes have been added
 	for (UINT nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
@@ -334,14 +349,14 @@ void Model::SetNodes()
 			childNode->ModelSpaceTransformMatrix
 				= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, node->ModelSpaceTransformMatrix);
 
-			std::cout << "\Model Space Transform matrix for child node at index :" << childNodeIndex;
-			Utils::printMatrix(childNode->ModelSpaceTransformMatrix);
+			//std::cout << "\Model Space Transform matrix for child node at index :" << childNodeIndex;
+			//Utils::printMatrix(childNode->ModelSpaceTransformMatrix);
 
 			childNode->WorldSpaceTransformMatrix
-				= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, m_nodes[0]->WorldSpaceTransformMatrix);
+				= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, worldTransformMatrix);
 
-			std::cout << "\World Space Transform matrix for child node at index :" << childNodeIndex;
-			Utils::printMatrix(childNode->WorldSpaceTransformMatrix);
+			//std::cout << "\World Space Transform matrix for child node at index :" << childNodeIndex;
+			//Utils::printMatrix(childNode->WorldSpaceTransformMatrix);
 
 			// likely not needed since we don't need non-meshed nodes beyond the above matrix calculation
 			node->ChildrenNodes.push_back(childNode);
@@ -349,31 +364,81 @@ void Model::SetNodes()
 	}
 }
 
-void Model::UpdateNodeWorldSpace(Node* node)
-{
-	for (Node* childNode : node->ChildrenNodes)
-	{
-		/*childNode->ModelSpaceTransformMatrix
-			= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, childNode->ParentNode->ModelSpaceTransformMatrix);*/
-
-		childNode->WorldSpaceTransformMatrix
-			= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, m_nodes[0]->WorldSpaceTransformMatrix);
-
-		UpdateNodeWorldSpace(childNode);
-	}
-}
+//void Model::UpdateNodeWorldSpace(Node* node)
+//{
+//	for (Node* childNode : node->ChildrenNodes)
+//	{
+//		childNode->WorldSpaceTransformMatrix
+//			= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, m_nodes[0]->WorldSpaceTransformMatrix);
+//
+//		std::cout << "\nUpdated world space transform for child node:";
+//		Utils::printMatrix(childNode->WorldSpaceTransformMatrix);
+//
+//		UpdateNodeWorldSpace(childNode);
+//	}
+//}
 
 void Model::UpdateAllNodesWorldSpace()
 {
-	// Assumes root node is the first element and that there is only 1 root node
-	UpdateNodeWorldSpace(m_nodes[0]);
+	DirectX::XMMATRIX worldTransformMatrix
+		= worldScalingMatrix * worldRotationMatrix * worldTranslationMatrix;
+
+	for (int i = 0; i < m_nodes.size(); i++)
+	{
+		Node* node = m_nodes[i];
+		node->WorldSpaceTransformMatrix
+			= DirectX::XMMatrixMultiply(node->ModelSpaceTransformMatrix, worldTransformMatrix);
+
+		/*std::cout << "\nUpdated world space transform for node: " << i;
+		Utils::printMatrix(node->WorldSpaceTransformMatrix);*/
+	}
 }
 
-void Model::TranslateBy(float x, float y, float z)
+const void Model::SetWorldPosition(float x, float y, float z)
 {
-	m_nodes[0]->ModelSpaceTransformMatrix *= DirectX::XMMatrixTranslation(x, y, z);
-	m_nodes[0]->WorldSpaceTransformMatrix *= DirectX::XMMatrixTranslation(x, y, z);
+	//XMVECTOR is faster than FLOAT3 as it uses SIMD and possibly even dedicated hardware registers
+
+	m_worldPosition = { x, y, z };
+	DirectX::XMVECTOR worldTranslationVector = DirectX::XMLoadFloat3(&m_worldPosition);
+	worldTranslationMatrix = DirectX::XMMatrixTranslationFromVector(worldTranslationVector);
+
 	UpdateAllNodesWorldSpace();
+}
+
+const void Model::SetWorldRotationDegrees(float xDegrees, float yDegrees, float zDegrees)
+{
+	//XMVECTOR is faster than FLOAT3 as it uses SIMD and possibly even dedicated hardware registers
+
+	float pitch = DirectX::XMConvertToRadians(xDegrees);
+	float yaw = DirectX::XMConvertToRadians(yDegrees);
+	float roll = DirectX::XMConvertToRadians(zDegrees);
+	m_worldRotationRadians = { pitch, yaw, roll };
+	DirectX::XMVECTOR worldRotationVector = DirectX::XMLoadFloat3(&m_worldRotationRadians);
+	worldRotationMatrix = DirectX::XMMatrixRotationRollPitchYawFromVector(worldRotationVector);
+
+	UpdateAllNodesWorldSpace();
+}
+
+const void Model::SetWorldScale(float x, float y, float z)
+{
+	//XMVECTOR is faster than FLOAT3 as it uses SIMD and possibly even dedicated hardware registers
+
+	m_worldScale = { x, y, z };
+	DirectX::XMVECTOR worldScalingVector = DirectX::XMLoadFloat3(&m_worldScale);
+	worldScalingMatrix = DirectX::XMMatrixScalingFromVector(worldScalingVector);
+
+	UpdateAllNodesWorldSpace();
+}
+
+const void Model::SetWorldScale(float scale)
+{
+	SetWorldScale(scale, scale, scale);
+}
+
+void Model::TranslateBy(float xOffset, float yOffset, float zOffset)
+{
+	//std::cout << "\nTranslating by: " << xOffset << ", " << yOffset << ", " << zOffset << "\n";
+	SetWorldPosition(m_worldPosition.x + xOffset, m_worldPosition.y + yOffset, m_worldPosition.z + zOffset);
 }
 
 void Model::RotateByDegrees(float x, float y, float z)
@@ -381,53 +446,18 @@ void Model::RotateByDegrees(float x, float y, float z)
 	float pitch = DirectX::XMConvertToRadians(x);
 	float yaw = DirectX::XMConvertToRadians(y);
 	float roll = DirectX::XMConvertToRadians(z);
-	m_nodes[0]->ModelSpaceTransformMatrix *= DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
-	m_nodes[0]->WorldSpaceTransformMatrix *= DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
-	UpdateAllNodesWorldSpace();
+
+	//std::cout << "\nRotating by: " << x << ", " << y << ", " << z << "\n";
+	SetWorldRotationDegrees(m_worldRotationRadians.x + pitch,
+		m_worldRotationRadians.y + yaw,
+		m_worldRotationRadians.z + roll);
 }
 
-//void Model::UpdateTransforms(std::vector<Node>& nodesJson, int nodeIndex = 0)
-//{
-//	m_renderableNodeWorldMatrices.clear(); // reset list of world matrices for renderable nodes
-//
-//	std::cout << "Updated transforms\n";
-//	for (int i = 0; i < nodesJson.size(); i++)
-//	{
-//		Node& currentNode = nodesJson[i];
-//		//std::cout << "\nNode: " << i << ", " << currentNode.name;
-//
-//		if (i != 0) //root node has no parent
-//		{
-//			Node& parent = *currentNode.ancestor;
-//			currentNode.localTransformMatrix = DirectX::XMMatrixMultiply(currentNode.localTransformMatrix, parent.localTransformMatrix);
-//			//std::cout << "\nParent: " << parent.name;
-//		}
-//
-//		//Utils::printMatrix(currentNode.xmMatrix);
-//
-//		if (currentNode.mesh >= 0)
-//		{
-//			m_renderableNodeWorldMatrices.push_back(&currentNode.localTransformMatrix);
-//		}
-//	}
-//}
-//
-//void Model::BuildNodeTree(std::vector<Node>& nodesJson)
-//{
-//	for(Node& currentNode : nodesJson)
-//	{
-//		currentNode.localTransformMatrix = DirectX::XMMATRIX(currentNode.matrix.data());
-//
-//		for (int j = 0; j < currentNode.children.size(); j++)
-//		{
-//			// Assign the actual node pointers to the children nodes using the children indexes
-//			int childIndex = currentNode.children[j];
-//			Node& childNode = nodesJson[childIndex];
-//
-//			childNode.ancestor = &currentNode; // assign the current node as an ancestor for the line
-//		}
-//	}
-//}
+void Model::ScaleBy(float x, float y, float z)
+{
+	//std::cout << "\nScaling by: " << x << ", " << y << ", " << z << "\n";
+	SetWorldScale(m_worldScale.x * x, m_worldScale.y * y, m_worldScale.z * z);
+}
 
 // const int Model::GetNumberOfIndicesInMesh(int meshIndex = 0) const
 //{
