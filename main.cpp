@@ -334,6 +334,60 @@ bool CreateRTVAndDescriptorHeap()
 	return true;
 }
 
+bool CreateDepthStencilBuffer()
+{
+	HRESULT hr;
+
+	D3D12_HEAP_PROPERTIES dsBufferProperties{ D3D12_HEAP_TYPE_DEFAULT };
+
+	D3D12_RESOURCE_DESC dsBufferResourceDesc
+		= CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, Width, Height, 1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+	/*dsBufferResourceDesc.Alignment = 0;
+	dsBufferResourceDesc.DepthOrArraySize = 1;
+	dsBufferResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsBufferResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	dsBufferResourceDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsBufferResourceDesc.Height = Height;
+	dsBufferResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsBufferResourceDesc.MipLevels = 1;
+	dsBufferResourceDesc.SampleDesc = { 1, 0 };
+	dsBufferResourceDesc.Width = Width;*/
+
+	D3D12_CLEAR_VALUE dsClearValue{};
+	dsClearValue.DepthStencil.Depth = 1.0f;
+	dsClearValue.DepthStencil.Stencil = 0;
+	dsClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+
+	hr = device->CreateCommittedResource(
+		&dsBufferProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&dsBufferResourceDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&dsClearValue,
+		IID_PPV_ARGS(&depthStencilBuffer));
+
+	PROMPTFAIL(hr, "Failed to create Depth Stencil Buffer Resource. ");
+
+	D3D12_DESCRIPTOR_HEAP_DESC dsBufferDescriptorHeapDesc{};
+	dsBufferDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	dsBufferDescriptorHeapDesc.NumDescriptors = 1;
+	dsBufferDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+
+	hr = device->CreateDescriptorHeap(&dsBufferDescriptorHeapDesc, IID_PPV_ARGS(&depthStencilDescriptorHeap));
+	depthStencilDescriptorHeap->SetName(L"Depth Stencil Descriptor Heap");
+
+	PROMPTFAIL(hr, "Failed to create descriptor heap for depth stencil resource");
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsViewDesc{};
+	dsViewDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsViewDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsViewDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	device->CreateDepthStencilView(depthStencilBuffer, &dsViewDesc, depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+
+	return true;
+}
+
 bool CreateCommandAllocators()
 {
 	HRESULT hr;
@@ -395,7 +449,7 @@ void CreateViewport()
 	viewport.Width = Width;
 	viewport.Height = Height;
 	viewport.MinDepth = 0.01f;
-	viewport.MaxDepth = 1000.0f;
+	viewport.MaxDepth = 1.0f;
 
 	// Fill out a scissor rect
 	scissorRect.left = 0;
@@ -504,6 +558,21 @@ bool CreatePipelineStateObject(MeshPrimitive* meshPrimitive)
 	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	graphicsPipelineStateDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	graphicsPipelineStateDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+	D3D12_DEPTH_STENCIL_DESC dsDesc{};
+	dsDesc.DepthEnable = TRUE;
+	dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	dsDesc.StencilEnable = FALSE;
+	dsDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+	dsDesc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+	const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
+	{ D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
+	dsDesc.FrontFace = defaultStencilOp;
+	dsDesc.BackFace = defaultStencilOp;
+
+	graphicsPipelineStateDesc.DepthStencilState = dsDesc;
+	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	graphicsPipelineStateDesc.SampleMask = 0xffffff; // point sampling
 	graphicsPipelineStateDesc.SampleDesc = sampleDesc;
 
@@ -576,14 +645,20 @@ bool UpdatePipeline()
 		g_rtvDescriptorSize
 	};
 
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsDescriptorHandle
+	{
+		depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart()
+	};
+
 	// If RTsSingleHandleToDescriptorRange (3rd arg) is TRUE, 
 	// pRenderTargetDescriptors (2nd arg) points to a contiguous descriptor range (GPU offsets by descriptor size); 
 	// if FALSE, it points to an array of handles (extra indirection, less efficient).
-	commandList->OMSetRenderTargets(1, &rtvDescriptorHandle, FALSE, nullptr);
+	commandList->OMSetRenderTargets(1, &rtvDescriptorHandle, FALSE, &dsDescriptorHandle);
 
 	// set color of render target when clearing it
 	const float clearColor[] = { 0.6f, 0.2f, 0.4f, 1.0f };
 	commandList->ClearRenderTargetView(rtvDescriptorHandle, clearColor, 0, nullptr);
+	commandList->ClearDepthStencilView(depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	commandList->RSSetViewports(1, &viewport);
 	commandList->RSSetScissorRects(1, &scissorRect);
@@ -735,6 +810,8 @@ bool CreateBufferResource(ID3D12Resource*& bufferResource, size_t bufferSize)
 	bufferResourceDesc.SampleDesc = { 1,0 };
 	bufferResourceDesc.Width = bufferSize;
 
+	std::cout << "Buffer resource size: " << bufferSize << "\n";
+
 	//D3D12_HEAP_PROPERTIES bufferHeapProperties{ D3D12_HEAP_TYPE_GPU_UPLOAD };
 	CD3DX12_HEAP_PROPERTIES bufferHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 	HRESULT hr = device->CreateCommittedResource(
@@ -781,6 +858,7 @@ bool SetDescriptors(Mesh* mesh)
 		CD3DX12_CPU_DESCRIPTOR_HANDLE wvpMatrixCBVHandle(
 			meshPrimitive->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
 			descriptorNumber, descriptorSize); // offsets the Heapstart by the descriptorNumber*descriptorSize
+
 
 		// Create the view
 		device->CreateConstantBufferView(&wvpMatrixCBVDesc, wvpMatrixCBVHandle);
@@ -894,6 +972,7 @@ bool Init()
 	CHECK_FAIL(CreateCommandQueue()); // needs device
 	CHECK_FAIL(CreateSwapChain()); // needs factory and device and command queue
 	CHECK_FAIL(CreateRTVAndDescriptorHeap()); // needs device and swapchain
+	CHECK_FAIL(CreateDepthStencilBuffer());
 	CHECK_FAIL(CreateCommandList()); // needs device and command allocator
 	CHECK_FAIL(CreateFences()); // needs device
 
@@ -965,11 +1044,9 @@ bool Init()
 
 		model->SetData();
 
-		oakTreeModel->SetWorldPosition(0.0f, -10.0f, 50.0f);
+		oakTreeModel->SetWorldPosition(0.0f, -15.0f, 50.0f);
 		oakTreeModel->SetWorldRotationDegrees(-90, 0, 0);
-		oakTreeModel->SetWorldScale(2.0f);
-
-		oakTreeModel->ScaleBy(0.5f, 0.5f, 0.5f);
+		oakTreeModel->SetWorldScale(1.0f);
 
 		for (Mesh* mesh : modelMeshes)
 		{
@@ -994,7 +1071,7 @@ bool Init()
 			}
 			std::cout << "\n";*/
 
-			CHECK_FAIL(CreateBufferResource(meshNode.WVPMatrixGPUResource, meshNode.WVPMatrixVector.size() * sizeof(float)));
+			CHECK_FAIL(CreateBufferResource(meshNode.WVPMatrixGPUResource, ~255 & (255 + meshNode.WVPMatrixVector.size() * sizeof(float))));
 			CHECK_FAIL(UploadBuffer(meshNode.WVPMatrixGPUResource, reinterpret_cast<byte*>(meshNode.WVPMatrixVector.data()), meshNode.WVPMatrixVector.size() * sizeof(float)));
 
 			for (int i = 0; i < mesh->Primitives.size(); i++)

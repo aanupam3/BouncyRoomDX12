@@ -1,16 +1,16 @@
 #pragma once
 
 
-#include <d3d12.h>
-#include <dxgi1_4.h>
-#include <D3Dcompiler.h>
 #include "d3dx12.h"
-#include <dxgidebug.h>
-#include <DirectXMath.h>
-#include <wrl.h>
-#include <chrono>
 #include "wincodec.h"
+#include <chrono>
+#include <d3d12.h>
+#include <D3Dcompiler.h>
+#include <DirectXMath.h>
+#include <dxgi1_4.h>
+#include <dxgidebug.h>
 #include <pix3.h>
+#include <wrl.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -34,9 +34,9 @@ bool FullScreen = false;
 bool Running = true;
 
 LRESULT CALLBACK WndProc(HWND hWnd,
-    UINT msg,
-    WPARAM wParam,
-    LPARAM lParam);
+	UINT msg,
+	WPARAM wParam,
+	LPARAM lParam);
 
 const int g_frameBufferCount = 3;
 
@@ -46,9 +46,9 @@ const int g_frameBufferCount = 3;
 
 struct Vertex
 {
-    DirectX::XMFLOAT3 pos;
-    DirectX::XMFLOAT4 color;
-    DirectX::XMFLOAT2 uv;
+	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT4 color;
+	DirectX::XMFLOAT2 uv;
 };
 
 bool Init();
@@ -64,6 +64,8 @@ ID3D12Device* device;
 IDXGISwapChain3* swapChain;
 ID3D12Resource* renderTargets[g_frameBufferCount];
 ID3D12DescriptorHeap* rtvDescriptorHeap;
+ID3D12Resource* depthStencilBuffer;
+ID3D12DescriptorHeap* depthStencilDescriptorHeap;
 ID3D12CommandQueue* commandQueue;
 ID3D12CommandAllocator* commandAllocators[g_frameBufferCount];
 ID3D12GraphicsCommandList* commandList;
