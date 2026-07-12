@@ -45,11 +45,11 @@ namespace Utils
 		};
 	}
 
-	static void printMatrix(const DirectX::XMMATRIX& m)
+	static void printMatrix(const DirectX::XMMATRIX& m, const std::string& matrixName = "")
 	{
 		DirectX::XMFLOAT4X4 mat;
 		XMStoreFloat4x4(&mat, m);
-		std::cout << "\n";
+		std::cout << matrixName << "\n";
 		std::cout << mat._11 << " " << mat._12 << " " << mat._13 << " " << mat._14 << "\n";
 		std::cout << mat._21 << " " << mat._22 << " " << mat._23 << " " << mat._24 << "\n";
 		std::cout << mat._31 << " " << mat._32 << " " << mat._33 << " " << mat._34 << "\n";

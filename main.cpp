@@ -972,7 +972,7 @@ bool Init()
 	CHECK_FAIL(CreateCommandQueue()); // needs device
 	CHECK_FAIL(CreateSwapChain()); // needs factory and device and command queue
 	CHECK_FAIL(CreateRTVAndDescriptorHeap()); // needs device and swapchain
-	CHECK_FAIL(CreateDepthStencilBuffer());
+	CHECK_FAIL(CreateDepthStencilBuffer()); // needs device
 	CHECK_FAIL(CreateCommandList()); // needs device and command allocator
 	CHECK_FAIL(CreateFences()); // needs device
 
@@ -981,13 +981,22 @@ bool Init()
 
 	commandList->Reset(commandAllocators[g_frameIndex], nullptr);
 
-	// Upload the binary file to the GPU ----------------------------------------------------
+	// Create the models
 	Model* oakTreeModel = new Model(oakTreeModelBasePath, "OakTree");
-	//Model* cubeModel = new Model(cubeModelBasePath, "cube");
+	Model* cubeModel = new Model(cubeModelBasePath, "cube");
+
+	oakTreeModel->SetWorldPosition(0.0f, -15.0f, 50.0f);
+	oakTreeModel->SetWorldRotationDegrees(-90, 0, 0);
+	oakTreeModel->SetWorldScale(1.0f);
+
+	cubeModel->SetWorldPosition(0.0f, -10.0f, 50.0f);
+	cubeModel->SetWorldRotationDegrees(0, 0, 0);
+	cubeModel->SetWorldScale(1.5f);
 
 	models.push_back(oakTreeModel);
-	//models.push_back(cubeModel);
+	models.push_back(cubeModel);
 
+	// Initial View Transform-----------------------------------------------
 	constexpr float pitch = DirectX::XMConvertToRadians(0); // X rotation
 	constexpr float yaw = DirectX::XMConvertToRadians(0); // Y rotation
 	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
@@ -999,19 +1008,11 @@ bool Init()
 		0.0f
 	);
 	DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
-	/*std::cout << "\nCamera matrix is:";
-	Utils::printMatrix(cameraWorldMatrix);*/
-	/*const DirectX::XMMATRIX cameraWorldMatrix
-	{
-		0.7f, 0.7f, 0.0f, 0.0f,
-		-0.7f, 0.7f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		-20.0f, 20.0f, -60.0f, 1.0f,
-	};*/
+	//Utils::printMatrix(cameraWorldMatrix, "Camera Matrix");
 	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
-	//std::cout << "\nView matrix is:";
-	//Utils::printMatrix(viewMatrix);
+	//Utils::printMatrix(viewMatrix, "View Matrix");
 
+	// Projection matrix ----------------------------------------------------
 	const float n = 0.01f; // near clipping plane
 	const float f = 1000.0f; // far clipping plane
 	// assume fov = 90, so zoom = 1 along width
@@ -1022,54 +1023,34 @@ bool Init()
 		0.0f, 0.0f, f / (f - n), 1.0f,
 		0.0f, 0.0f, -n * f / (f - n), 0.0f
 	};
-	//std::cout << "\nProjection matrix is:";
-	//Utils::printMatrix(projectionMatrix);
+	//Utils::printMatrix(projectionMatrix, "Projection Matrix");
 
 	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
-	//std::cout << "\nVP matrix is:";
-	//Utils::printMatrix(vpMatrix);
-
-	/*std::vector<float>* allWVPMatrices = new std::vector<float>();
-	std::vector<byte>* allTextureData = new std::vector<byte>();*/
+	//Utils::printMatrix(vpMatrix, "VP Matrix");
 
 	for (Model* model : models)
 	{
-		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
-
-		//if (!model->UploadModelBinary(device, commandList)) { return false; }
 		const ModelBinData* modelBinData = model->GetBinData();
 		CHECK_FAIL(CreateBufferResource(model->ModelBinResource, modelBinData->binDataSize));
-		//std::cout << "Buffer resource after creating: " << model->ModelBinResource << "\n";
 		CHECK_FAIL(UploadBuffer(model->ModelBinResource, modelBinData->binData, modelBinData->binDataSize));
 
-		model->SetData();
+		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
 
-		oakTreeModel->SetWorldPosition(0.0f, -15.0f, 50.0f);
-		oakTreeModel->SetWorldRotationDegrees(-90, 0, 0);
-		oakTreeModel->SetWorldScale(1.0f);
-
-		for (Mesh* mesh : modelMeshes)
+		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
 		{
-			/*DirectX::XMMATRIX& meshWorldMatrix = mesh->worldMatrix;
-				std::cout << "\nWorld matrix :";
-				Utils::printMatrix(meshWorldMatrix);*/
-				//wvpMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixMultiply(*worldMatricesForRenderableNodes[i], vpMatrix));
+			Mesh* mesh = modelMeshes[meshIndex];
+
+			// THese need the model binary's address so that the buffer view's location can be assigned
+			// that's why we set them here instead of in the Model constructor
+			model->SetMeshVertexBufferViews(meshIndex);
+			model->SetMeshIndexBufferView(meshIndex);
 
 			Node& meshNode = *(mesh->MeshNode);
 
-			/*std::cout << "\World Space Transform matrix :";
-			Utils::printMatrix(meshNode.WorldSpaceTransformMatrix);*/
-
 			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(meshNode.WorldSpaceTransformMatrix, vpMatrix) };
 			model->SetWVPMatrixForMesh(mesh, wvpMatrix);
-			std::cout << "\nWVP matrix :";
-			Utils::printMatrix(meshNode.WVPMatrix);
-			/*std::cout << "\n";
-			for (float value : mesh->WVPMatrixVector)
-			{
-				std::cout << value << ",";
-			}
-			std::cout << "\n";*/
+			//Utils::printMatrix(meshNode.WorldSpaceTransformMatrix, "World Space Transform matrix");
+			//Utils::printMatrix(meshNode.WVPMatrix, "WVP matrix");
 
 			CHECK_FAIL(CreateBufferResource(meshNode.WVPMatrixGPUResource, ~255 & (255 + meshNode.WVPMatrixVector.size() * sizeof(float))));
 			CHECK_FAIL(UploadBuffer(meshNode.WVPMatrixGPUResource, reinterpret_cast<byte*>(meshNode.WVPMatrixVector.data()), meshNode.WVPMatrixVector.size() * sizeof(float)));
@@ -1089,7 +1070,6 @@ bool Init()
 		}
 	}
 
-	//commandList->CopyResource(textureDefaultHeap, textureUploadHeap);
 	commandList->Close();
 	ID3D12CommandList* commandLists[]{ commandList };
 	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);

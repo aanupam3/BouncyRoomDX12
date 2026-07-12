@@ -11,10 +11,6 @@ Model::Model(std::string modelBasePath, std::string name) : m_modelBasePath(mode
 	//m_texturesFolderPath = modelBasePath + "/textures/";
 
 	ExtractDataFromGLTF();
-}
-
-void Model::SetData()
-{
 	SetMeshes();
 	SetNodes();
 }
@@ -107,8 +103,6 @@ void Model::SetMeshes()
 			mesh->Primitives.push_back(meshPrimitive);
 		}
 
-		SetMeshVertexBufferViews(meshIndex);
-		SetMeshIndexBufferView(meshIndex);
 		SetMeshTextures(meshIndex);
 		SetMeshShaders(mesh);
 	}

@@ -115,14 +115,14 @@ private:
 	void SetNodes();
 	void UpdateAllNodesWorldSpace();
 	void SetMeshes();
-	void SetMeshVertexBufferViews(int meshIndex);
-	void SetMeshIndexBufferView(int meshIndex);
+
 	void SetMeshTextures(int meshIndex);
 	void SetMeshShaders(Mesh* mesh);
 
 public:
 	Model(std::string modelBasePath, std::string name = "");
-	void SetData();
+	void SetMeshVertexBufferViews(int meshIndex);
+	void SetMeshIndexBufferView(int meshIndex);
 	~Model();
 
 	std::string Name;
