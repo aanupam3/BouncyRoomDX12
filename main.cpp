@@ -7,7 +7,17 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT msgId, WPARAM wParam, LPARAM lParam)
 int g_frameIndex;// current render target view we are on
 UINT g_rtvDescriptorSize; // size of rtv description (in pixels?), i.e., all front and back buffers are same size
 
-std::vector<Model*> models;
+std::vector<Model*> g_models;
+constexpr float n = 0.01f; // near clipping plane
+constexpr float f = 1000.0f; // far clipping plane
+// assume fov = 90, so zoom = 1 along width
+const DirectX::XMMATRIX g_projectionMatrix
+{
+	1.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, 1.0f * Width / Height, 0.0f, 0.0f,
+	0.0f, 0.0f, f / (f - n), 1.0f,
+	0.0f, 0.0f, -n * f / (f - n), 0.0f
+};
 
 bool InitializeWindow(HINSTANCE hInstance,
 	int ShowWnd,
@@ -588,8 +598,91 @@ bool CreatePipelineStateObject(MeshPrimitive* meshPrimitive)
 	return true;
 }
 
+
+// Assumes buffer is n*256-byte aligned and the resource property is GPU_UPLOAD
+bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSize)
+{
+	//UINT alignedBufferSize = 256 * (1 + static_cast<UINT>((bufferSize - 1) / 256));
+	/*
+
+	if(!bufferData)
+	{
+		PROMPTFAIL(0, "Buffer source data is null for upload!");
+	}*/
+
+	/*if (!bufferResource)
+	{
+		PROMPTFAIL(0, "Buffer resource is null for upload!");
+	}*/
+
+	/*bufferResource->Map(0, nullptr, nullptr);
+	D3D12_BOX bufferBox{ 0, 0, 0, alignedBufferSize, 1, 1 };
+	HRESULT hr = bufferResource->WriteToSubresource(0, &bufferBox, bufferData, alignedBufferSize, 1);
+	bufferResource->Unmap(0, nullptr);
+
+	PROMPTFAIL(hr, "Failed to write buffer to subresource");*/
+
+	//return true;
+
+	// This works well for UMA since the data is all on System RAM instead of a discrete VRAM
+
+	void* mapped = nullptr;
+
+	D3D12_RANGE readRange = { 0, 0 }; // CPU will not read
+
+	HRESULT hr = bufferResource->Map(0, &readRange, &mapped);
+
+	PROMPTFAIL(hr, "Failed to map buffer resource");
+
+	memcpy(mapped, bufferData, bufferSize);
+
+	D3D12_RANGE writtenRange = {
+		0,
+		bufferSize
+	};
+
+	bufferResource->Unmap(0, &writtenRange);
+
+	return true;
+}
+
+float theta = 0;
+float radiansPerSec = -0.001f;
 bool Update()
 {
+	const float r = 50.0f;
+	float alpha = (3.14159f - theta) / 2.0f;
+	float hyp = 2 * r * std::sin(theta / 2.0f);
+
+	float newX = -hyp * sin(alpha);
+	float newZ = hyp * cos(alpha);
+
+	constexpr float pitch = DirectX::XMConvertToRadians(0); // X rotation
+	const float yaw = theta; // Y rotation
+	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
+	const DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
+	const DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(newX, 0.0f, newZ);
+	const DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
+	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
+	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, g_projectionMatrix);
+
+	for (Model* model : g_models)
+	{
+		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
+
+		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
+		{
+			Mesh* mesh = modelMeshes[meshIndex];
+			Node& meshNode = *(mesh->MeshNode);
+
+			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(meshNode.WorldSpaceTransformMatrix, vpMatrix) };
+			model->SetWVPMatrixForMesh(mesh, wvpMatrix);
+
+			CHECK_FAIL(UploadBuffer(meshNode.WVPMatrixGPUResource, reinterpret_cast<byte*>(meshNode.WVPMatrixVector.data()), meshNode.WVPMatrixVector.size() * sizeof(float)));
+		}
+	}
+
+	theta += radiansPerSec;
 	return true;
 }
 
@@ -656,7 +749,7 @@ bool UpdatePipeline()
 	commandList->OMSetRenderTargets(1, &rtvDescriptorHandle, FALSE, &dsDescriptorHandle);
 
 	// set color of render target when clearing it
-	const float clearColor[] = { 0.6f, 0.2f, 0.4f, 1.0f };
+	const float clearColor[] = { 0.3f, 0.3f, 0.3f, 1.0f };
 	commandList->ClearRenderTargetView(rtvDescriptorHandle, clearColor, 0, nullptr);
 	commandList->ClearDepthStencilView(depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
@@ -665,7 +758,7 @@ bool UpdatePipeline()
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//std::vector<ID3D12DescriptorHeap*>* textureSRVDescriptorHeaps = new std::vector<ID3D12DescriptorHeap*>();
-	for (Model* model : models)
+	for (Model* model : g_models)
 	{
 		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
 		for (Mesh* mesh : modelMeshes)
@@ -810,7 +903,7 @@ bool CreateBufferResource(ID3D12Resource*& bufferResource, size_t bufferSize)
 	bufferResourceDesc.SampleDesc = { 1,0 };
 	bufferResourceDesc.Width = bufferSize;
 
-	std::cout << "Buffer resource size: " << bufferSize << "\n";
+	//std::cout << "Buffer resource size: " << bufferSize << "\n";
 
 	//D3D12_HEAP_PROPERTIES bufferHeapProperties{ D3D12_HEAP_TYPE_GPU_UPLOAD };
 	CD3DX12_HEAP_PROPERTIES bufferHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -839,7 +932,7 @@ bool SetDescriptors(Mesh* mesh)
 	wvpMatrixCBVDesc.BufferLocation = meshNode.WVPMatrixGPUResource->GetGPUVirtualAddress();
 	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(meshNode.WVPMatrixVector.size()) / 256);
 
-	std::cout << "Mesh " << mesh->Name << " CBV size in bytes " << wvpMatrixCBVDesc.SizeInBytes << "\n";
+	//std::cout << "Mesh " << mesh->Name << " CBV size in bytes " << wvpMatrixCBVDesc.SizeInBytes << "\n";
 
 	for (int i = 0; i < mesh->Primitives.size(); i++)
 	{
@@ -916,54 +1009,6 @@ bool UploadTexture(Texture* texture, bool useWriteToSubResource = true)
 	return true;
 }
 
-// Assumes buffer is n*256-byte aligned and the resource property is GPU_UPLOAD
-bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSize)
-{
-	//UINT alignedBufferSize = 256 * (1 + static_cast<UINT>((bufferSize - 1) / 256));
-	/*
-
-	if(!bufferData)
-	{
-		PROMPTFAIL(0, "Buffer source data is null for upload!");
-	}*/
-
-	/*if (!bufferResource)
-	{
-		PROMPTFAIL(0, "Buffer resource is null for upload!");
-	}*/
-
-	/*bufferResource->Map(0, nullptr, nullptr);
-	D3D12_BOX bufferBox{ 0, 0, 0, alignedBufferSize, 1, 1 };
-	HRESULT hr = bufferResource->WriteToSubresource(0, &bufferBox, bufferData, alignedBufferSize, 1);
-	bufferResource->Unmap(0, nullptr);
-
-	PROMPTFAIL(hr, "Failed to write buffer to subresource");*/
-
-	//return true;
-
-	// This works well for UMA since the data is all on System RAM instead of a discrete VRAM
-
-	void* mapped = nullptr;
-
-	D3D12_RANGE readRange = { 0, 0 }; // CPU will not read
-
-	HRESULT hr = bufferResource->Map(0, &readRange, &mapped);
-
-	PROMPTFAIL(hr, "Failed to map buffer resource");
-
-	memcpy(mapped, bufferData, bufferSize);
-
-	D3D12_RANGE writtenRange = {
-		0,
-		bufferSize
-	};
-
-	bufferResource->Unmap(0, &writtenRange);
-
-	return true;
-}
-
-
 bool Init()
 {
 	CHECK_FAIL(CreateFactory());
@@ -983,52 +1028,43 @@ bool Init()
 
 	// Create the models
 	Model* oakTreeModel = new Model(oakTreeModelBasePath, "OakTree");
-	Model* cubeModel = new Model(cubeModelBasePath, "cube");
-
 	oakTreeModel->SetWorldPosition(0.0f, -15.0f, 50.0f);
 	oakTreeModel->SetWorldRotationDegrees(-90, 0, 0);
-	oakTreeModel->SetWorldScale(1.0f);
+	g_models.push_back(oakTreeModel);
 
+	Model* oakTreeModel2 = new Model(oakTreeModelBasePath, "OakTree2");
+	oakTreeModel2->SetWorldPosition(-40.0f, -15.0f, 55.0f);
+	oakTreeModel2->SetWorldRotationDegrees(-90, 0, 0);
+	g_models.push_back(oakTreeModel2);
+
+	Model* oakTreeModel3 = new Model(oakTreeModelBasePath, "OakTree3");
+	oakTreeModel3->SetWorldPosition(40.0f, -15.0f, 65.0f);
+	oakTreeModel3->SetWorldRotationDegrees(-90, 0, 0);
+	g_models.push_back(oakTreeModel3);
+
+	Model* cubeModel = new Model(cubeModelBasePath, "cube");
 	cubeModel->SetWorldPosition(0.0f, -10.0f, 50.0f);
 	cubeModel->SetWorldRotationDegrees(0, 0, 0);
 	cubeModel->SetWorldScale(1.5f);
+	g_models.push_back(cubeModel);
 
-	models.push_back(oakTreeModel);
-	models.push_back(cubeModel);
-
-	// Initial View Transform-----------------------------------------------
+	// VP Transform-----------------------------------------------
 	constexpr float pitch = DirectX::XMConvertToRadians(0); // X rotation
 	constexpr float yaw = DirectX::XMConvertToRadians(0); // Y rotation
 	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
 	DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
-
-	DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(
-		0.0f,
-		0.0f,
-		0.0f
-	);
+	DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 	DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
-	//Utils::printMatrix(cameraWorldMatrix, "Camera Matrix");
 	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
+	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, g_projectionMatrix);
+
+	//Utils::printMatrix(cameraWorldMatrix, "Camera Matrix");
 	//Utils::printMatrix(viewMatrix, "View Matrix");
-
-	// Projection matrix ----------------------------------------------------
-	const float n = 0.01f; // near clipping plane
-	const float f = 1000.0f; // far clipping plane
-	// assume fov = 90, so zoom = 1 along width
-	const DirectX::XMMATRIX projectionMatrix
-	{
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f * Width / Height, 0.0f, 0.0f,
-		0.0f, 0.0f, f / (f - n), 1.0f,
-		0.0f, 0.0f, -n * f / (f - n), 0.0f
-	};
 	//Utils::printMatrix(projectionMatrix, "Projection Matrix");
-
-	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
 	//Utils::printMatrix(vpMatrix, "VP Matrix");
+	std::cout << "\n";
 
-	for (Model* model : models)
+	for (Model* model : g_models)
 	{
 		const ModelBinData* modelBinData = model->GetBinData();
 		CHECK_FAIL(CreateBufferResource(model->ModelBinResource, modelBinData->binDataSize));
@@ -1040,7 +1076,9 @@ bool Init()
 		{
 			Mesh* mesh = modelMeshes[meshIndex];
 
-			// THese need the model binary's address so that the buffer view's location can be assigned
+			std::cout << "Setting up GPU resources for model " << model->Name << " mesh: " << mesh->Name << "\n";
+
+			// These need the model binary's address so that the buffer view's location can be assigned
 			// that's why we set them here instead of in the Model constructor
 			model->SetMeshVertexBufferViews(meshIndex);
 			model->SetMeshIndexBufferView(meshIndex);

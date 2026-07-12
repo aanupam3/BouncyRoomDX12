@@ -11,10 +11,9 @@ namespace Utils
 	static void LoadBinaryData(const std::string& binarySrcPath, byte*& dst, size_t& binSize)
 	{
 		std::ifstream binFile{ binarySrcPath, std::ios::binary | std::ios::ate };
-		if (binFile.is_open()) { std::cout << "Found binary!\n"; }
-		else
+		if (!binFile.is_open())
 		{
-			std::cout << "Did not find binary!\n";
+			std::cout << "Did not find binary at " << binarySrcPath << "\n";
 			return;
 		}
 

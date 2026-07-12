@@ -10,6 +10,8 @@ Model::Model(std::string modelBasePath, std::string name) : m_modelBasePath(mode
 	m_glTFPath = modelBasePath + "/scene.gltf";
 	//m_texturesFolderPath = modelBasePath + "/textures/";
 
+	std::cout << "Creating model: " << Name << "\n";
+
 	ExtractDataFromGLTF();
 	SetMeshes();
 	SetNodes();
@@ -263,11 +265,6 @@ void Model::SetMeshTextures(int meshIndex)
 			meshPrimitive->Textures.push_back(texture);
 		}
 	}
-	/*ModelGLTF::Texture normalTexMetaData = m_modelJson->textures[normalTexIndex];
-	ModelGLTF::Texture occlusionTexMetaData = m_modelJson->textures[occlusionTexIndex];
-	ModelGLTF::Texture emissiveTexMetaData = m_modelJson->textures[emissiveTexIndex];
-	ModelGLTF::Texture metallicRoughnessTexMetaData = m_modelJson->textures[metallicRoughnessTexIndex];
-	ModelGLTF::Texture pbrBaseColorTexMetaData = m_modelJson->textures[pbrBaseColorTexIndex];*/
 }
 
 void Model::SetMeshShaders(Mesh* mesh)
@@ -315,6 +312,7 @@ void Model::SetNodes()
 		m_nodes.push_back(node);
 	}
 
+	// Initialization
 	DirectX::XMVECTOR worldTranslationVector = DirectX::XMLoadFloat3(&m_worldPosition);
 	worldTranslationMatrix = DirectX::XMMatrixTranslationFromVector(worldTranslationVector);
 
@@ -327,10 +325,6 @@ void Model::SetNodes()
 	DirectX::XMMATRIX worldTransformMatrix
 		= worldScalingMatrix * worldRotationMatrix * worldTranslationMatrix;
 
-	/*SetWorldPosition(0, 0, 0);
-	SetWorldRotationDegrees(0, 0, 0);
-	SetWorldScale(1, 1, 1);*/
-
 	// Set relationships to other nodes once all nodes have been added
 	for (UINT nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
@@ -342,17 +336,12 @@ void Model::SetNodes()
 			childNode->ParentNode = node;
 			childNode->ModelSpaceTransformMatrix
 				= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, node->ModelSpaceTransformMatrix);
-
-			//std::cout << "\Model Space Transform matrix for child node at index :" << childNodeIndex;
-			//Utils::printMatrix(childNode->ModelSpaceTransformMatrix);
+			//Utils::printMatrix(childNode->ModelSpaceTransformMatrix, "Model Space Transform matrix for child node at index :" + std::to_string(childNodeIndex));
 
 			childNode->WorldSpaceTransformMatrix
 				= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, worldTransformMatrix);
+			//Utils::printMatrix(childNode->WorldSpaceTransformMatrix, "World Space Transform matrix for child node at index :" + std::to_string(childNodeIndex));
 
-			//std::cout << "\World Space Transform matrix for child node at index :" << childNodeIndex;
-			//Utils::printMatrix(childNode->WorldSpaceTransformMatrix);
-
-			// likely not needed since we don't need non-meshed nodes beyond the above matrix calculation
 			node->ChildrenNodes.push_back(childNode);
 		}
 	}
@@ -383,8 +372,7 @@ void Model::UpdateAllNodesWorldSpace()
 		node->WorldSpaceTransformMatrix
 			= DirectX::XMMatrixMultiply(node->ModelSpaceTransformMatrix, worldTransformMatrix);
 
-		/*std::cout << "\nUpdated world space transform for node: " << i;
-		Utils::printMatrix(node->WorldSpaceTransformMatrix);*/
+		//Utils::printMatrix(node->WorldSpaceTransformMatrix, "Updated world space transform for node " + std::to_string(i));
 	}
 }
 
