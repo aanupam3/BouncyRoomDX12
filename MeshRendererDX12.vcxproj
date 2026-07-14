@@ -136,6 +136,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Benchmarker.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="Macros.h" />
     <ClInclude Include="Model.h" />
@@ -145,6 +146,7 @@
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Benchmarker.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
   </ItemGroup>

@@ -1,13 +1,35 @@
 #pragma once
 #include "DirectXMath.h"
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <windows.h>
 
 typedef unsigned char byte;
 
 namespace Utils
 {
+	static double GetCurrentTimeMs()
+	{
+		return std::chrono::duration_cast<std::chrono::milliseconds>
+			(std::chrono::system_clock::now().time_since_epoch())
+			.count();
+	}
+
+	template<typename StructType, typename T>
+	static std::vector<T> ExtractFromStructList(const std::vector<StructType> structList, T StructType::* field)
+	{
+		std::vector<T> fieldList{};
+		fieldList.reserve(structList.size());
+
+		for (const StructType& structElement : structList)
+		{
+			fieldList.push_back(structElement.*field);
+		}
+		return fieldList;
+	}
+
 	static void LoadBinaryData(const std::string& binarySrcPath, byte*& dst, size_t& binSize)
 	{
 		std::ifstream binFile{ binarySrcPath, std::ios::binary | std::ios::ate };

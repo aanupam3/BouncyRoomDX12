@@ -46,6 +46,7 @@ Build/
 build-*/
 .vs/
 MeshRendererDX12/
+PIXCaptures/
 
 # CMake generated files
 CMakeFiles/

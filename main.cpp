@@ -1,3 +1,4 @@
+#include "Benchmarker.h"
 #include "Macros.h"
 #include "Model.h"
 #include "stdafx.h"
@@ -93,15 +94,20 @@ void InitConsole()
 	freopen_s(&f, "CONOUT$", "w", stdout);
 	freopen_s(&f, "CONOUT$", "w", stderr);
 	freopen_s(&f, "CONIN$", "r", stdin);
-
-	printf("Console initialized\n");
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLine, int nShowCmd)
 {
-
 	InitConsole();
-	std::cout << "Hello from console\n";
+
+#if BENCHMARK
+	std::cout << "------- Benchmarking Enabled --------------\n";
+	g_benchmarker.IsFirstRender = true;
+	Benchmarker::StartTime(g_benchmarker.LoadingMetricsData.LoadTimeToFirstRenderedFrame);
+	//std::cout << "Start Load epoch time for first frame: " << g_benchmarker.LoadingMetricsData.LoadTimeToFirstRenderedFrame <<"\n";
+#else
+	std::cout << "------- Benchmarking Disabled --------------\n";
+#endif
 
 	if (!InitializeWindow(hInstance, nShowCmd, FullScreen))
 	{
@@ -110,6 +116,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		return 1;
 	}
 
+#if BENCHMARK
+	Benchmarker::StartTime(g_benchmarker.LoadingMetricsData.InitTime);
+#endif
 	if (!Init())
 	{
 		MessageBoxA(0, "Failed to initialize direct3d 12",
@@ -118,10 +127,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		Cleanup();
 		return 1;
 	}
+#if BENCHMARK
+	Benchmarker::StopTime(g_benchmarker.LoadingMetricsData.InitTime);
+#endif
 
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
 
+	g_benchmarker.Init(300, 120);
+
+	int frameCount = 0;
 
 	while (Running)
 	{
@@ -138,8 +153,35 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		else {
 			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Frame %llu", g_frameIndex);
 
-			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Update");
+			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Update
+
+#if BENCHMARK
+			if (frameCount > g_benchmarker.MeasurementFrameCount + g_benchmarker.StabilizationFrameCount)
+			{
+				g_benchmarker.Report();
+				break;
+			}
+
+			Benchmarker::SteadyStateFrameMetrics frameMetrics{};
+			if (frameCount > g_benchmarker.StabilizationFrameCount)
+			{
+				Benchmarker::StartTime(frameMetrics.CpuTime);
+				//std::cout << "Cpu epoch time actual for frame: " << frameCount << " is " << frameMetrics.CpuTime << "\n";
+			}
+#endif
+
 			Update();
+
+#if BENCHMARK
+			if (frameCount > g_benchmarker.StabilizationFrameCount)
+			{
+				Benchmarker::StopTime(frameMetrics.CpuTime);
+				g_benchmarker.SteadyStateFrameMetricsData.push_back(frameMetrics);
+				//std::cout << "Cpu ms duration for frame: " << frameCount << " is " << frameMetrics.CpuTime << "\n";
+			}
+
+			frameCount++;
+#endif
 			//PIXEndEvent();
 
 			Render(); // execute the command queue (rendering the scene is the result of the gpu executing the command lists)
@@ -155,6 +197,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 
 	// clean up everything
 	Cleanup();
+
+	std::cout << "\nPress Enter to exit...";
+	std::cin.get();
 
 	return 0;
 }
@@ -666,6 +711,12 @@ bool Update()
 	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
 	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, g_projectionMatrix);
 
+	/*for (int i = 0; i < 10000000; i++)
+	{
+		newZ++;
+	}*/
+
+
 	for (Model* model : g_models)
 	{
 		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
@@ -824,10 +875,20 @@ bool Render()
 	PROMPTFAIL(hr, "Failed to signal fence with error ");
 
 	// presents the current back buffer
-	hr = swapChain->Present(0, 0);
+	hr = swapChain->Present(VSYNC, 0);
 
 	const std::string msg = "Failed to present backbuffer at index " + std::to_string(g_frameIndex);
 	PROMPTFAIL(hr, msg.c_str());
+
+#if BENCHMARK
+
+	if (g_benchmarker.IsFirstRender)
+	{
+		Benchmarker::StopTime(g_benchmarker.LoadingMetricsData.LoadTimeToFirstRenderedFrame);
+		g_benchmarker.IsFirstRender = false;
+	}
+
+#endif
 
 	return true;
 }
@@ -1148,12 +1209,12 @@ void Cleanup()
 	SAFE_RELEASE(pipelineStateObject);
 	SAFE_RELEASE(rootSignature);
 
-	for (int i = 0; i < g_frameBufferCount; i++)
+	/*for (int i = 0; i < g_frameBufferCount; i++)
 	{
 		SAFE_RELEASE(renderTargets[i]);
 		SAFE_RELEASE(commandAllocators[i]);
 		SAFE_RELEASE(fencesGPU[i]);
-	}
+	}*/
 }
 
 

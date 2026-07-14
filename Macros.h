@@ -4,7 +4,6 @@
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers.
 #endif
 
-#include <windows.h>
 #include "utils.h"
 
 //#define D3DCOMPILE_DEBUG 1
@@ -25,3 +24,10 @@ LOG_HR_AND_RETURN_FAIL(hr, msg);\
 }\
 // this will only call release if an object exists (prevents exceptions calling release on non existant objects)
 #define SAFE_RELEASE(p) { if ( (p) ) { (p)->Release(); (p) = 0; } }
+
+// 0 = off
+// 1 = 60 fps
+// 2 = 30 fps
+#define VSYNC 0 
+
+#define BENCHMARK 0

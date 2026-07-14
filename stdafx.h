@@ -40,9 +40,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,
 
 const int g_frameBufferCount = 3;
 
-
-#define VERTEXSHADER L"VertexShader.hlsl"
-#define PIXELSHADER L"PixelShader.hlsl"
+Benchmarker g_benchmarker{};
 
 struct Vertex
 {
