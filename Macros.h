@@ -31,3 +31,5 @@ LOG_HR_AND_RETURN_FAIL(hr, msg);\
 #define VSYNC 0 
 
 #define BENCHMARK 0
+
+#define PI 3.14159

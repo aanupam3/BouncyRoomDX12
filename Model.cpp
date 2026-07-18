@@ -44,18 +44,21 @@ Model::~Model()
 			}
 
 			meshPrimitive->VertexBufferViews.clear();
-			//delete(mesh->VertexBufferViews);
-
-			SAFE_RELEASE(meshPrimitive->MainShaderVisibleDescriptorHeap);
-
-
 			meshPrimitive->Textures.clear();
 		}
 
-		SAFE_RELEASE(mesh->MeshNode->WVPMatrixGPUResource);
 		delete(mesh);
 	}
 	m_meshes.clear();
+
+	for (int i = 0; i < m_nodesLocalSpace.size(); i++)
+	{
+		NodeLocal* node = m_nodesLocalSpace[i];
+		delete node;
+	}
+	m_nodesLocalSpace.clear();
+
+	// Need to delete m_nodes too
 }
 
 void Model::ExtractDataFromGLTF()
@@ -91,7 +94,7 @@ void Model::ExtractDataFromGLTF()
 
 void Model::SetMeshes()
 {
-	NumMeshes = static_cast<UINT>(m_modelJson->meshes.size());
+	int NumMeshes = static_cast<UINT>(m_modelJson->meshes.size());
 	for (UINT meshIndex = 0; meshIndex < NumMeshes; meshIndex++)
 	{
 		Mesh* mesh = new Mesh();
@@ -167,12 +170,12 @@ void Model::SetMeshVertexBufferViews(int meshIndex)
 			else if (attributeType == "VEC2") { inputLayoutElement.Format = DXGI_FORMAT_R32G32_FLOAT; }
 			else if (attributeType == "SCALAR") { inputLayoutElement.Format = DXGI_FORMAT_R32_FLOAT; }
 
-			meshPrimitive->inputLayoutList.push_back(inputLayoutElement);
+			meshPrimitive->InputLayoutList.push_back(inputLayoutElement);
 
 			attributeIndex++;
 		}
-		meshPrimitive->inputLayout.NumElements = numAttributes;
-		meshPrimitive->inputLayout.pInputElementDescs = meshPrimitive->inputLayoutList.data();
+		meshPrimitive->InputLayout.NumElements = numAttributes;
+		meshPrimitive->InputLayout.pInputElementDescs = meshPrimitive->InputLayoutList.data();
 	}
 }
 
@@ -291,208 +294,36 @@ void Model::SetMeshShaders(Mesh* mesh)
 	}
 }
 
-void Model::SetWVPMatrixForMesh(Mesh* mesh, DirectX::XMMATRIX& newWVPMatrix)
-{
-	Node& meshNode = *(mesh->MeshNode);
-	meshNode.WVPMatrix = newWVPMatrix;
-	meshNode.WVPMatrixVector = Utils::xmMatrixToVector(newWVPMatrix);
-}
-
 void Model::SetNodes()
 {
 	UINT numNodes = static_cast<UINT>(m_modelJson->nodes.size());
-	for (ModelGLTF::Node& nodeJson : m_modelJson->nodes)
+	m_nodesLocalSpace.reserve(numNodes);
+
+	for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
-		Node* node = new Node();
+		ModelGLTF::Node& nodeJson = m_modelJson->nodes[nodeIndex];
+		NodeLocal* node = new NodeLocal();
 
-		node->LocalSpaceTransformMatrix = DirectX::XMMATRIX(nodeJson.matrix.data());
+		node->NodeTransform.SetAndExtractFromTransformationMatrix(DirectX::XMMATRIX(nodeJson.matrix.data()));
 
-		if (nodeJson.mesh != -1) { m_meshes[nodeJson.mesh]->MeshNode = node; }
+		if (nodeJson.mesh != -1)
+		{
+			m_meshes[nodeJson.mesh]->NodeIndex = nodeIndex;
+			node->MeshIndex = nodeJson.mesh;
+		}
 
-		m_nodes.push_back(node);
+		node->ChildrenNodeIndexes = nodeJson.children;
+
+		m_nodesLocalSpace.push_back(node);
 	}
 
-	// Initialization
-	DirectX::XMVECTOR worldTranslationVector = DirectX::XMLoadFloat3(&m_worldPosition);
-	worldTranslationMatrix = DirectX::XMMatrixTranslationFromVector(worldTranslationVector);
-
-	DirectX::XMVECTOR worldRotationVector = DirectX::XMLoadFloat3(&m_worldRotationRadians);
-	worldRotationMatrix = DirectX::XMMatrixTranslationFromVector(worldRotationVector);
-
-	DirectX::XMVECTOR worldScalingVector = DirectX::XMLoadFloat3(&m_worldScale);
-	worldScalingMatrix = DirectX::XMMatrixTranslationFromVector(worldScalingVector);
-
-	DirectX::XMMATRIX worldTransformMatrix
-		= worldScalingMatrix * worldRotationMatrix * worldTranslationMatrix;
-
-	// Set relationships to other nodes once all nodes have been added
 	for (UINT nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
-		Node* node = m_nodes[nodeIndex];
-		ModelGLTF::Node& nodeJson = m_modelJson->nodes[nodeIndex];
-		for (int childNodeIndex : nodeJson.children)
+		NodeLocal* node = m_nodesLocalSpace[nodeIndex];
+		for (int childNodeIndex : node->ChildrenNodeIndexes)
 		{
-			Node* childNode = m_nodes[childNodeIndex];
-			childNode->ParentNode = node;
-			childNode->ModelSpaceTransformMatrix
-				= DirectX::XMMatrixMultiply(childNode->LocalSpaceTransformMatrix, node->ModelSpaceTransformMatrix);
-			//Utils::printMatrix(childNode->ModelSpaceTransformMatrix, "Model Space Transform matrix for child node at index :" + std::to_string(childNodeIndex));
-
-			childNode->WorldSpaceTransformMatrix
-				= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, worldTransformMatrix);
-			//Utils::printMatrix(childNode->WorldSpaceTransformMatrix, "World Space Transform matrix for child node at index :" + std::to_string(childNodeIndex));
-
-			node->ChildrenNodes.push_back(childNode);
+			NodeLocal* childNode = m_nodesLocalSpace[childNodeIndex];
+			childNode->ParentNodeIndex = nodeIndex;
 		}
 	}
 }
-
-//void Model::UpdateNodeWorldSpace(Node* node)
-//{
-//	for (Node* childNode : node->ChildrenNodes)
-//	{
-//		childNode->WorldSpaceTransformMatrix
-//			= DirectX::XMMatrixMultiply(childNode->ModelSpaceTransformMatrix, m_nodes[0]->WorldSpaceTransformMatrix);
-//
-//		std::cout << "\nUpdated world space transform for child node:";
-//		Utils::printMatrix(childNode->WorldSpaceTransformMatrix);
-//
-//		UpdateNodeWorldSpace(childNode);
-//	}
-//}
-
-void Model::UpdateAllNodesWorldSpace()
-{
-	DirectX::XMMATRIX worldTransformMatrix
-		= worldScalingMatrix * worldRotationMatrix * worldTranslationMatrix;
-
-	for (int i = 0; i < m_nodes.size(); i++)
-	{
-		Node* node = m_nodes[i];
-		node->WorldSpaceTransformMatrix
-			= DirectX::XMMatrixMultiply(node->ModelSpaceTransformMatrix, worldTransformMatrix);
-
-		//Utils::printMatrix(node->WorldSpaceTransformMatrix, "Updated world space transform for node " + std::to_string(i));
-	}
-}
-
-const void Model::SetWorldPosition(float x, float y, float z)
-{
-	//XMVECTOR is faster than FLOAT3 as it uses SIMD and possibly even dedicated hardware registers
-
-	m_worldPosition = { x, y, z };
-	DirectX::XMVECTOR worldTranslationVector = DirectX::XMLoadFloat3(&m_worldPosition);
-	worldTranslationMatrix = DirectX::XMMatrixTranslationFromVector(worldTranslationVector);
-
-	UpdateAllNodesWorldSpace();
-}
-
-const void Model::SetWorldRotationDegrees(float xDegrees, float yDegrees, float zDegrees)
-{
-	//XMVECTOR is faster than FLOAT3 as it uses SIMD and possibly even dedicated hardware registers
-
-	float pitch = DirectX::XMConvertToRadians(xDegrees);
-	float yaw = DirectX::XMConvertToRadians(yDegrees);
-	float roll = DirectX::XMConvertToRadians(zDegrees);
-	m_worldRotationRadians = { pitch, yaw, roll };
-	DirectX::XMVECTOR worldRotationVector = DirectX::XMLoadFloat3(&m_worldRotationRadians);
-	worldRotationMatrix = DirectX::XMMatrixRotationRollPitchYawFromVector(worldRotationVector);
-
-	UpdateAllNodesWorldSpace();
-}
-
-const void Model::SetWorldScale(float x, float y, float z)
-{
-	//XMVECTOR is faster than FLOAT3 as it uses SIMD and possibly even dedicated hardware registers
-
-	m_worldScale = { x, y, z };
-	DirectX::XMVECTOR worldScalingVector = DirectX::XMLoadFloat3(&m_worldScale);
-	worldScalingMatrix = DirectX::XMMatrixScalingFromVector(worldScalingVector);
-
-	UpdateAllNodesWorldSpace();
-}
-
-const void Model::SetWorldScale(float scale)
-{
-	SetWorldScale(scale, scale, scale);
-}
-
-void Model::TranslateBy(float xOffset, float yOffset, float zOffset)
-{
-	//std::cout << "\nTranslating by: " << xOffset << ", " << yOffset << ", " << zOffset << "\n";
-	SetWorldPosition(m_worldPosition.x + xOffset, m_worldPosition.y + yOffset, m_worldPosition.z + zOffset);
-}
-
-void Model::RotateByDegrees(float x, float y, float z)
-{
-	float pitch = DirectX::XMConvertToRadians(x);
-	float yaw = DirectX::XMConvertToRadians(y);
-	float roll = DirectX::XMConvertToRadians(z);
-
-	//std::cout << "\nRotating by: " << x << ", " << y << ", " << z << "\n";
-	SetWorldRotationDegrees(m_worldRotationRadians.x + pitch,
-		m_worldRotationRadians.y + yaw,
-		m_worldRotationRadians.z + roll);
-}
-
-void Model::ScaleBy(float x, float y, float z)
-{
-	//std::cout << "\nScaling by: " << x << ", " << y << ", " << z << "\n";
-	SetWorldScale(m_worldScale.x * x, m_worldScale.y * y, m_worldScale.z * z);
-}
-
-// const int Model::GetNumberOfIndicesInMesh(int meshIndex = 0) const
-//{
-//	nlohmann::json indicesAccessorNumber = m_modelJson->meshes[meshIndex].primitives[0].indices;
-//	Accessor accessor = m_modelJson->accessors[indicesAccessorNumber];
-//
-//	return accessor.count;
-//}
-//bool Model::UploadModelBinary(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
-//{
-//	const size_t modelBinSize = m_binData->binDataSize;
-//	const size_t numMeshesInModel = 1;// modelJson->meshes.size();
-//
-//	D3D12_HEAP_PROPERTIES modelBinaryDefaultHeapProperties{ D3D12_HEAP_TYPE_DEFAULT };
-//	D3D12_RESOURCE_DESC modelBinaryResourceDesc{};
-//	modelBinaryResourceDesc.Alignment = 0;
-//	modelBinaryResourceDesc.DepthOrArraySize = 1;
-//	modelBinaryResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-//	modelBinaryResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-//	modelBinaryResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-//	modelBinaryResourceDesc.Height = 1;
-//	modelBinaryResourceDesc.Width = modelBinSize;
-//	modelBinaryResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-//	modelBinaryResourceDesc.MipLevels = 1;
-//	modelBinaryResourceDesc.SampleDesc = { 1, 0 };
-//
-//	HRESULT hr = device->CreateCommittedResource(
-//		&modelBinaryDefaultHeapProperties,
-//		D3D12_HEAP_FLAG_NONE,
-//		&modelBinaryResourceDesc,
-//		D3D12_RESOURCE_STATE_COMMON,
-//		nullptr,
-//		IID_PPV_ARGS(&m_modelBinaryDefaultHeap)
-//	);
-//	PROMPTFAIL(hr, "Failed to create default heap for binary file");
-//
-//	ID3D12Resource* modelBinaryUploadHeap{};
-//
-//	D3D12_HEAP_PROPERTIES modelBinaryUploadHeapProperties{ D3D12_HEAP_TYPE_UPLOAD };
-//	hr = device->CreateCommittedResource(
-//		&modelBinaryUploadHeapProperties,
-//		D3D12_HEAP_FLAG_NONE,
-//		&modelBinaryResourceDesc,
-//		D3D12_RESOURCE_STATE_COMMON,
-//		nullptr,
-//		IID_PPV_ARGS(&modelBinaryUploadHeap)
-//	);
-//	PROMPTFAIL(hr, "Failed to create upload heap for binary file");
-//
-//	byte* pModelBinaryUploadHeap;
-//	modelBinaryUploadHeap->Map(0, nullptr, reinterpret_cast<void**>(&pModelBinaryUploadHeap));
-//	memcpy(pModelBinaryUploadHeap, m_binData, modelBinSize);
-//	modelBinaryUploadHeap->Unmap(0, nullptr);
-//
-//	commandList->CopyBufferRegion(m_modelBinaryDefaultHeap, 0, modelBinaryUploadHeap, 0, modelBinSize);
-//}

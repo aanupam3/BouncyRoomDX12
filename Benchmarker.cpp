@@ -45,5 +45,4 @@ void Benchmarker::Report()
 	std::cout << "Median Cpu Time: " << m_steadyStateCalculatedMetrics.MedianCpuFrameTime << "ms \n";
 	std::cout << "Min Cpu Time: " << m_steadyStateCalculatedMetrics.MinCpuTime << "ms \n";
 	std::cout << "Max Cpu Time: " << m_steadyStateCalculatedMetrics.MaxCpuTime << "ms \n";
-
 }

@@ -1,11 +1,7 @@
 #pragma once
-#include "DirectXMath.h"
 #include "ModelGLTF.h"
-#include <d3d12.h>
-#include <iostream>
+#include "Transform.h"
 #include <nlohmann/json.hpp>
-#include <string>
-#include <vector>
 
 typedef unsigned char byte;
 
@@ -55,38 +51,31 @@ struct MeshPrimitive
 	std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
 	std::vector<std::string> AttributeNames{};
 
-	ID3D12DescriptorHeap* MainShaderVisibleDescriptorHeap;
-
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
 	UINT NumIndices;
 
 	std::vector<Texture*> Textures;
 	std::vector<Shader> Shaders;
 
+	// Note that WVP resources are located in model instances as they will be different for each instance
 
-	D3D12_INPUT_LAYOUT_DESC inputLayout{};
-	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayoutList{};
+	D3D12_INPUT_LAYOUT_DESC InputLayout{};
+	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayoutList{};
 };
 
-struct Node
+struct NodeLocal
 {
-	DirectX::XMMATRIX LocalSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
-	DirectX::XMMATRIX ModelSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
-	DirectX::XMMATRIX WorldSpaceTransformMatrix{ DirectX::XMMatrixIdentity() };
-
-	DirectX::XMMATRIX WVPMatrix{ DirectX::XMMatrixIdentity() };
-	std::vector<float> WVPMatrixVector;
-	ID3D12Resource* WVPMatrixGPUResource;
-
-	std::vector<Node*> ChildrenNodes{};
-	Node* ParentNode;
+	Transform NodeTransform{};
+	std::vector<int> ChildrenNodeIndexes{};
+	int ParentNodeIndex;
+	int MeshIndex = -1;
 };
 
 struct Mesh
 {
 	std::string Name;
 	std::vector<MeshPrimitive*> Primitives{};
-	Node* MeshNode{};
+	int NodeIndex;
 };
 
 class Model
@@ -101,19 +90,10 @@ private:
 	ID3D12Resource* m_modelBinaryDefaultHeap{};
 
 	std::vector<Mesh*> m_meshes{};
-	std::vector<Node*> m_nodes{};
-
-	DirectX::XMFLOAT3 m_worldPosition{ 0,0,0 };
-	DirectX::XMFLOAT3 m_worldRotationRadians{ 0,0,0 };
-	DirectX::XMFLOAT3 m_worldScale{ 1,1,1 };
-
-	DirectX::XMMATRIX worldTranslationMatrix{};
-	DirectX::XMMATRIX worldRotationMatrix{};
-	DirectX::XMMATRIX worldScalingMatrix{};
+	std::vector<NodeLocal*> m_nodesLocalSpace{};
 
 	void ExtractDataFromGLTF();
 	void SetNodes();
-	void UpdateAllNodesWorldSpace();
 	void SetMeshes();
 
 	void SetMeshTextures(int meshIndex);
@@ -126,27 +106,12 @@ public:
 	~Model();
 
 	std::string Name;
-	UINT NumMeshes;
-
-	const void SetWorldPosition(float x, float y, float z);
-	const void SetWorldRotationDegrees(float x, float y, float z);
-	const void SetWorldScale(float scale);
-	const void SetWorldScale(float x, float y, float z);
-
-	void TranslateBy(float x, float y, float z);
-	void RotateByDegrees(float x, float y, float z);
-	void ScaleBy(float x, float y, float z);
 
 	// getters
 	const ModelGLTF::ModelJson* GetModelJson() const { return m_modelJson; }
 	const ModelBinData* GetBinData() const { return m_binData; }
 	const std::vector<Mesh*>& GetMeshes() const { return m_meshes; }
-	const std::vector<Node*>& GetNodes() const { return m_nodes; }
-	const DirectX::XMFLOAT3& GetWorldPosition() const { return m_worldPosition; }
-	const DirectX::XMFLOAT3& GetWorldRotationDegrees() const { return m_worldRotationRadians; }
-	const DirectX::XMFLOAT3& GetWorldScale() const { return m_worldScale; }
+	const std::vector<NodeLocal*>& GetNodes() const { return m_nodesLocalSpace; }
 
-	void SetWVPMatrixForMesh(Mesh* mesh, DirectX::XMMATRIX& newWVPMatrix);
-
-	ID3D12Resource* ModelBinResource; //nullptr needs to be set
+	ID3D12Resource* ModelBinResource;
 };

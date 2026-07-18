@@ -141,14 +141,18 @@
     <ClInclude Include="Macros.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelGLTF.h" />
+    <ClInclude Include="ModelInstance.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Transform.h" />
     <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Benchmarker.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="ModelInstance.cpp" />
+    <ClCompile Include="Transform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="models\cube\shaders\Object_0\Object_0_PixelShader.hlsl">

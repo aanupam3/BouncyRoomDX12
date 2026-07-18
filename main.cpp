@@ -1,6 +1,6 @@
 #include "Benchmarker.h"
 #include "Macros.h"
-#include "Model.h"
+#include "ModelInstance.h"
 #include "stdafx.h"
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT msgId, WPARAM wParam, LPARAM lParam);
@@ -9,16 +9,20 @@ int g_frameIndex;// current render target view we are on
 UINT g_rtvDescriptorSize; // size of rtv description (in pixels?), i.e., all front and back buffers are same size
 
 std::vector<Model*> g_models;
+std::vector<ModelInstance*> g_modelInstances;
+int g_numInstances;
+
 constexpr float n = 0.01f; // near clipping plane
 constexpr float f = 1000.0f; // far clipping plane
-// assume fov = 90, so zoom = 1 along width
-const DirectX::XMMATRIX g_projectionMatrix
+const DirectX::XMMATRIX g_projectionMatrix // assume fov = 90, so zoom = 1 along width
 {
 	1.0f, 0.0f, 0.0f, 0.0f,
 	0.0f, 1.0f * Width / Height, 0.0f, 0.0f,
 	0.0f, 0.0f, f / (f - n), 1.0f,
 	0.0f, 0.0f, -n * f / (f - n), 0.0f
 };
+float theta = 0;
+float radiansPerSec = -0.001f;
 
 bool InitializeWindow(HINSTANCE hInstance,
 	int ShowWnd,
@@ -116,6 +120,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		return 1;
 	}
 
+	std::cout << "Enter number of instances per model to render: ";
+	std::cin >> g_numInstances;
+
 #if BENCHMARK
 	Benchmarker::StartTime(g_benchmarker.LoadingMetricsData.InitTime);
 #endif
@@ -134,7 +141,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
 
-	g_benchmarker.Init(300, 120);
+	g_benchmarker.Init(300, 1000);
 
 	int frameCount = 0;
 
@@ -152,7 +159,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		}
 		else {
 			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Frame %llu", g_frameIndex);
-
 			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Update
 
 #if BENCHMARK
@@ -169,7 +175,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 				//std::cout << "Cpu epoch time actual for frame: " << frameCount << " is " << frameMetrics.CpuTime << "\n";
 			}
 #endif
-
 			Update();
 
 #if BENCHMARK
@@ -601,7 +606,7 @@ bool CreatePipelineStateObject(MeshPrimitive* meshPrimitive)
 {
 	HRESULT hr;
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.InputLayout = meshPrimitive->inputLayout;
+	graphicsPipelineStateDesc.InputLayout = meshPrimitive->InputLayout;
 	graphicsPipelineStateDesc.pRootSignature = rootSignature;
 	//graphicsPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_TOOL_DEBUG;
 	/*graphicsPipelineStateDesc.VS = vertexShaderBytecode;
@@ -691,8 +696,7 @@ bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t buffe
 	return true;
 }
 
-float theta = 0;
-float radiansPerSec = -0.001f;
+
 bool Update()
 {
 	const float r = 50.0f;
@@ -700,36 +704,30 @@ bool Update()
 	float hyp = 2 * r * std::sin(theta / 2.0f);
 
 	float newX = -hyp * sin(alpha);
+	float newY = 50.0f;
 	float newZ = hyp * cos(alpha);
 
-	constexpr float pitch = DirectX::XMConvertToRadians(0); // X rotation
+	const float pitch = DirectX::XMConvertToRadians(45); // X rotation
 	const float yaw = theta; // Y rotation
-	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
+	const float roll = DirectX::XMConvertToRadians(0); // Z rotation
 	const DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
-	const DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(newX, 0.0f, newZ);
+	const DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(newX, newY, newZ);
 	const DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
 	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
 	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, g_projectionMatrix);
 
-	/*for (int i = 0; i < 10000000; i++)
+	for (ModelInstance* modelInstance : g_modelInstances)
 	{
-		newZ++;
-	}*/
+		const std::vector<NodeWorld*>& instanceNodes = modelInstance->GetNodes();
 
-
-	for (Model* model : g_models)
-	{
-		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
-
-		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
+		for (UINT nodeIndex = 0; nodeIndex < instanceNodes.size(); nodeIndex++)
 		{
-			Mesh* mesh = modelMeshes[meshIndex];
-			Node& meshNode = *(mesh->MeshNode);
+			NodeWorld* nodeWithMesh = instanceNodes[nodeIndex];
+			if (nodeWithMesh->MeshIndex == -1) { continue; }
 
-			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(meshNode.WorldSpaceTransformMatrix, vpMatrix) };
-			model->SetWVPMatrixForMesh(mesh, wvpMatrix);
+			nodeWithMesh->WVPMatrixVector = Utils::xmMatrixToVector(DirectX::XMMatrixMultiply(nodeWithMesh->NodeTransform.GetTransformationMatrix(), vpMatrix));
 
-			CHECK_FAIL(UploadBuffer(meshNode.WVPMatrixGPUResource, reinterpret_cast<byte*>(meshNode.WVPMatrixVector.data()), meshNode.WVPMatrixVector.size() * sizeof(float)));
+			CHECK_FAIL(UploadBuffer(nodeWithMesh->WVPMatrixGPUResource, reinterpret_cast<byte*>(nodeWithMesh->WVPMatrixVector.data()), nodeWithMesh->WVPMatrixVector.size() * sizeof(float)));
 		}
 	}
 
@@ -770,7 +768,6 @@ bool UpdatePipeline()
 
 	// reset, now ready for recording
 	hr = commandList->Reset(commandAllocators[g_frameIndex], pipelineStateObject);
-
 	PROMPTFAIL(hr, "Failed to reset command LIST");
 
 	// change from present state to render target state for recording
@@ -809,13 +806,17 @@ bool UpdatePipeline()
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//std::vector<ID3D12DescriptorHeap*>* textureSRVDescriptorHeaps = new std::vector<ID3D12DescriptorHeap*>();
-	for (Model* model : g_models)
+	for (ModelInstance* instance : g_modelInstances)
 	{
-		const std::vector<Mesh*>& modelMeshes = model->GetMeshes();
+		const std::vector<Mesh*>& modelMeshes = instance->BaseModel->GetMeshes();
 		for (Mesh* mesh : modelMeshes)
 		{
 			for (int i = 0; i < mesh->Primitives.size(); i++)
 			{
+				// Position calculations
+				NodeWorld* nodeWithMesh = instance->GetNodes()[mesh->NodeIndex];
+
+				// Graphics update
 				MeshPrimitive* meshPrimitive = mesh->Primitives[i];
 				CHECK_FAIL(CreateRootSignature(meshPrimitive));
 				CHECK_FAIL(CreatePipelineStateObject(meshPrimitive));
@@ -831,9 +832,10 @@ bool UpdatePipeline()
 				}
 				commandList->IASetIndexBuffer(&meshPrimitive->IndexBufferView);
 
-				commandList->SetDescriptorHeaps(1, &meshPrimitive->MainShaderVisibleDescriptorHeap);
+				// This is problematic since different primitives should be allowed to have different numbers textures in a given mesh
+				commandList->SetDescriptorHeaps(1, &nodeWithMesh->PrimitiveShaderVisibleDescriptorHeaps[i]);
 
-				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = meshPrimitive->MainShaderVisibleDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = nodeWithMesh->PrimitiveShaderVisibleDescriptorHeaps[i]->GetGPUDescriptorHandleForHeapStart();
 				commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
 
 				descriptorHandle.ptr += device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -853,7 +855,13 @@ bool UpdatePipeline()
 	commandList->ResourceBarrier(1, &barrier2);
 	hr = commandList->Close();
 
+	ID3D12CommandList* commandLists[]{ commandList };
+
+	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+
 	PROMPTFAIL(hr, "Failed to close command list ");
+
+	theta += radiansPerSec;
 
 	return true;
 }
@@ -865,10 +873,6 @@ bool Render()
 	{
 		PROMPTFAIL(hr, "Failed to record!\n");
 	}
-
-	ID3D12CommandList* commandLists[]{ commandList };
-
-	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 
 	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
 
@@ -982,68 +986,6 @@ bool CreateBufferResource(ID3D12Resource*& bufferResource, size_t bufferSize)
 	return true;
 }
 
-bool SetDescriptors(Mesh* mesh)
-{
-	HRESULT hr;
-
-	Node& meshNode = *(mesh->MeshNode);
-
-	// Create the common handle for the WVP matrix
-	D3D12_CONSTANT_BUFFER_VIEW_DESC wvpMatrixCBVDesc{};
-	wvpMatrixCBVDesc.BufferLocation = meshNode.WVPMatrixGPUResource->GetGPUVirtualAddress();
-	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(meshNode.WVPMatrixVector.size()) / 256);
-
-	//std::cout << "Mesh " << mesh->Name << " CBV size in bytes " << wvpMatrixCBVDesc.SizeInBytes << "\n";
-
-	for (int i = 0; i < mesh->Primitives.size(); i++)
-	{
-		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
-		// Create the descriptor heap to hold descriptors for all mesh resources -----------------------------------------
-		D3D12_DESCRIPTOR_HEAP_DESC mainSrvDescriptorHeapDesc{};
-		mainSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		mainSrvDescriptorHeapDesc.NumDescriptors = static_cast<UINT>(meshPrimitive->Textures.size()) + 1; // +1 for mesh's WVP matrix
-		mainSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		hr = device->CreateDescriptorHeap(&mainSrvDescriptorHeapDesc, IID_PPV_ARGS(&meshPrimitive->MainShaderVisibleDescriptorHeap));
-		PROMPTFAIL(hr, "Failed to create main descriptor heap for mesh " + std::string(mesh->Name) + " primitive at index " + std::to_string(i));
-
-		int descriptorNumber = 0;
-		UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		CD3DX12_CPU_DESCRIPTOR_HANDLE wvpMatrixCBVHandle(
-			meshPrimitive->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-			descriptorNumber, descriptorSize); // offsets the Heapstart by the descriptorNumber*descriptorSize
-
-
-		// Create the view
-		device->CreateConstantBufferView(&wvpMatrixCBVDesc, wvpMatrixCBVHandle);
-
-		// Setup SRV for shader interaction with Resource -------------------------------------
-		D3D12_TEX2D_SRV texture2DSrvMips{};
-		texture2DSrvMips.MipLevels = 1;
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC textureSrvDesc{};
-		textureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		textureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		textureSrvDesc.Texture2D = texture2DSrvMips;
-		textureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-
-		for (Texture* texture : meshPrimitive->Textures)
-		{
-			descriptorNumber++;
-			CD3DX12_CPU_DESCRIPTOR_HANDLE textureSRVHandle(
-				meshPrimitive->MainShaderVisibleDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-				descriptorNumber, descriptorSize);
-
-			device->CreateShaderResourceView(
-				texture->GPUResource,
-				&textureSrvDesc,
-				textureSRVHandle
-			);
-		}
-	}
-
-}
-
 // Assumes n*256-byte aligned rows in a texture
 bool UploadTexture(Texture* texture, bool useWriteToSubResource = true)
 {
@@ -1070,6 +1012,67 @@ bool UploadTexture(Texture* texture, bool useWriteToSubResource = true)
 	return true;
 }
 
+bool SetShaderVisibleDescriptors(ModelInstance* instance, NodeWorld* nodeWithMesh)
+{
+	HRESULT hr;
+
+	// Create the common desc for the WVP matrix
+	D3D12_CONSTANT_BUFFER_VIEW_DESC wvpMatrixCBVDesc{};
+	wvpMatrixCBVDesc.BufferLocation = nodeWithMesh->WVPMatrixGPUResource->GetGPUVirtualAddress();
+	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(nodeWithMesh->WVPMatrixVector.size()) / 256);
+
+	Mesh* mesh = instance->BaseModel->GetMeshes()[nodeWithMesh->MeshIndex];
+	int numMeshPrimitives = mesh->Primitives.size();
+	nodeWithMesh->PrimitiveShaderVisibleDescriptorHeaps.resize(numMeshPrimitives);
+	for (int i = 0; i < numMeshPrimitives; i++)
+	{
+		MeshPrimitive* meshPrimitive = mesh->Primitives[i];
+
+		// Create the descriptor heap with the correct size to hold descriptors for all mesh resources -----------------------------------------
+		D3D12_DESCRIPTOR_HEAP_DESC mainSrvDescriptorHeapDesc{};
+		mainSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		mainSrvDescriptorHeapDesc.NumDescriptors = static_cast<UINT>(meshPrimitive->Textures.size()) + 1; // +1 for mesh's WVP matrix
+		mainSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		hr = device->CreateDescriptorHeap(&mainSrvDescriptorHeapDesc, IID_PPV_ARGS(&nodeWithMesh->PrimitiveShaderVisibleDescriptorHeaps[i]));
+		PROMPTFAIL(hr, "Failed to create main descriptor heap for mesh " + std::string(mesh->Name) + " primitive at index " + std::to_string(i));
+
+		// Create the handle inside the heap (where the buffer view goes)
+		UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		int descriptorNumber = 0;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE wvpMatrixCBVHandle(
+			nodeWithMesh->PrimitiveShaderVisibleDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart(),
+			descriptorNumber, descriptorSize); // offsets the Heapstart by the descriptorNumber*descriptorSize
+
+		// Create the CBV for each instance's WVP matrix
+		device->CreateConstantBufferView(&wvpMatrixCBVDesc, wvpMatrixCBVHandle);
+
+		// Setup SRV for shader interaction with Resource -------------------------------------
+		D3D12_TEX2D_SRV texture2DSrvMips{};
+		texture2DSrvMips.MipLevels = 1;
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC textureSrvDesc{};
+		textureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		textureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureSrvDesc.Texture2D = texture2DSrvMips;
+		textureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+
+		for (Texture* texture : meshPrimitive->Textures)
+		{
+			descriptorNumber++;
+			CD3DX12_CPU_DESCRIPTOR_HANDLE textureSRVHandle(
+				nodeWithMesh->PrimitiveShaderVisibleDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart(),
+				descriptorNumber, descriptorSize);
+
+			device->CreateShaderResourceView(
+				texture->GPUResource,
+				&textureSrvDesc,
+				textureSRVHandle
+			);
+		}
+	}
+	return true;
+}
+
 bool Init()
 {
 	CHECK_FAIL(CreateFactory());
@@ -1089,11 +1092,30 @@ bool Init()
 
 	// Create the models
 	Model* oakTreeModel = new Model(oakTreeModelBasePath, "OakTree");
-	oakTreeModel->SetWorldPosition(0.0f, -15.0f, 50.0f);
-	oakTreeModel->SetWorldRotationDegrees(-90, 0, 0);
 	g_models.push_back(oakTreeModel);
 
-	Model* oakTreeModel2 = new Model(oakTreeModelBasePath, "OakTree2");
+	for (int i = 0; i < g_numInstances; i++)
+	{
+		float maxX = 120;
+		float posX = maxX * (std::rand() / (1.0f * RAND_MAX)) * pow(-1, i);
+
+		float maxZ = 500;
+		float posZ = maxZ * (std::rand() / (1.0f * RAND_MAX)) * pow(-1, i);
+
+		float posY = -15.0f;
+		DirectX::XMFLOAT3 position{ posX, posY, posZ };
+
+		float rotYRadians = std::rand();
+		DirectX::XMFLOAT3 rotation{ 0, rotYRadians, 0 };
+
+		/*std::cout << "Creating instance at: (" << posX << ", " << posY << ", " << posZ << ")\n";
+		std::cout << "Rotation: (" << rotation.x << ", " << rotation.y << ", " << rotation.z << ")\n";*/
+		ModelInstance* oakTreeModelInstance = new ModelInstance(oakTreeModel, Transform(position, rotation));
+
+		g_modelInstances.push_back(oakTreeModelInstance);
+	}
+
+	/*Model* oakTreeModel2 = new Model(oakTreeModelBasePath, "OakTree2");
 	oakTreeModel2->SetWorldPosition(-40.0f, -15.0f, 55.0f);
 	oakTreeModel2->SetWorldRotationDegrees(-90, 0, 0);
 	g_models.push_back(oakTreeModel2);
@@ -1101,21 +1123,21 @@ bool Init()
 	Model* oakTreeModel3 = new Model(oakTreeModelBasePath, "OakTree3");
 	oakTreeModel3->SetWorldPosition(40.0f, -15.0f, 65.0f);
 	oakTreeModel3->SetWorldRotationDegrees(-90, 0, 0);
-	g_models.push_back(oakTreeModel3);
+	g_models.push_back(oakTreeModel3);*/
 
-	Model* cubeModel = new Model(cubeModelBasePath, "cube");
+	/*Model* cubeModel = new Model(cubeModelBasePath, "cube");
 	cubeModel->SetWorldPosition(0.0f, -10.0f, 50.0f);
 	cubeModel->SetWorldRotationDegrees(0, 0, 0);
 	cubeModel->SetWorldScale(1.5f);
-	g_models.push_back(cubeModel);
+	g_models.push_back(cubeModel);*/
 
 	// VP Transform-----------------------------------------------
 	constexpr float pitch = DirectX::XMConvertToRadians(0); // X rotation
 	constexpr float yaw = DirectX::XMConvertToRadians(0); // Y rotation
 	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
-	DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
-	DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
-	DirectX::XMMATRIX cameraWorldMatrix = rotation * translation;
+	DirectX::XMMATRIX cameraRotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
+	DirectX::XMMATRIX cameraTranslation = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+	DirectX::XMMATRIX cameraWorldMatrix = cameraRotation * cameraTranslation;
 	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
 	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, g_projectionMatrix);
 
@@ -1125,6 +1147,7 @@ bool Init()
 	//Utils::printMatrix(vpMatrix, "VP Matrix");
 	std::cout << "\n";
 
+	// Uploading all resources for base models. These are shared by each instance of a given model
 	for (Model* model : g_models)
 	{
 		const ModelBinData* modelBinData = model->GetBinData();
@@ -1144,16 +1167,6 @@ bool Init()
 			model->SetMeshVertexBufferViews(meshIndex);
 			model->SetMeshIndexBufferView(meshIndex);
 
-			Node& meshNode = *(mesh->MeshNode);
-
-			DirectX::XMMATRIX wvpMatrix{ DirectX::XMMatrixMultiply(meshNode.WorldSpaceTransformMatrix, vpMatrix) };
-			model->SetWVPMatrixForMesh(mesh, wvpMatrix);
-			//Utils::printMatrix(meshNode.WorldSpaceTransformMatrix, "World Space Transform matrix");
-			//Utils::printMatrix(meshNode.WVPMatrix, "WVP matrix");
-
-			CHECK_FAIL(CreateBufferResource(meshNode.WVPMatrixGPUResource, ~255 & (255 + meshNode.WVPMatrixVector.size() * sizeof(float))));
-			CHECK_FAIL(UploadBuffer(meshNode.WVPMatrixGPUResource, reinterpret_cast<byte*>(meshNode.WVPMatrixVector.data()), meshNode.WVPMatrixVector.size() * sizeof(float)));
-
 			for (int i = 0; i < mesh->Primitives.size(); i++)
 			{
 				MeshPrimitive* meshPrimitive = mesh->Primitives[i];
@@ -1164,9 +1177,29 @@ bool Init()
 					CHECK_FAIL(UploadTexture(texture));
 				}
 			}
-
-			SetDescriptors(mesh);
 		}
+	}
+
+	for (ModelInstance* instance : g_modelInstances)
+	{
+		const std::vector<NodeWorld*>& instanceNodes = instance->GetNodes();
+		int numNodes = instanceNodes.size();
+		for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
+		{
+			NodeWorld* node = instanceNodes[nodeIndex];
+
+			if (node->MeshIndex == -1) { continue; } // don't bother creating resources for nodes without meshes
+
+			node->WVPMatrixVector = Utils::xmMatrixToVector(DirectX::XMMatrixMultiply(node->NodeTransform.GetTransformationMatrix(), vpMatrix));
+			//Utils::printMatrix(meshNode.WorldSpaceTransformMatrix, "World Space Transform matrix");
+			//Utils::printMatrix(meshNode.WVPMatrix, "WVP matrix");
+
+			// Aligning buffer to 256 bytes as it is refrenced by a CBV
+			CHECK_FAIL(CreateBufferResource(node->WVPMatrixGPUResource, ~255 & (255 + node->WVPMatrixVector.size() * sizeof(float))));
+			CHECK_FAIL(UploadBuffer(node->WVPMatrixGPUResource, reinterpret_cast<byte*>(node->WVPMatrixVector.data()), node->WVPMatrixVector.size() * sizeof(float)));
+			CHECK_FAIL(SetShaderVisibleDescriptors(instance, node));
+		}
+
 	}
 
 	commandList->Close();
@@ -1208,6 +1241,16 @@ void Cleanup()
 	SAFE_RELEASE(device);
 	SAFE_RELEASE(pipelineStateObject);
 	SAFE_RELEASE(rootSignature);
+
+	for (int i = 0; i < g_models.size(); i++)
+	{
+		delete(g_models[i]);
+	}
+
+	for (int i = 0; i < g_modelInstances.size(); i++)
+	{
+		delete(g_modelInstances[i]);
+	}
 
 	/*for (int i = 0; i < g_frameBufferCount; i++)
 	{
