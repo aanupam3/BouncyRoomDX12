@@ -18,14 +18,14 @@ using Microsoft::WRL::ComPtr;
 HWND hwnd = NULL;
 
 // name of the window (not the title)
-LPCTSTR WindowName = L"D3D12Practice";
+LPCTSTR WindowName = L"MeshRendererDX12";
 
 // title of the window
-LPCTSTR WindowTitle = L"D3D12 Practice Window";
+LPCTSTR WindowTitle = L"Mesh Renderer DX12";
 
 // width and height of the window
-const UINT Width = 800;
-const UINT Height = 600;
+const UINT Width = 1920; // standard HD
+const UINT Height = 1080;
 
 // is window full screen?
 bool FullScreen = false;
@@ -55,7 +55,7 @@ bool UpdatePipeline();
 bool Render();
 bool WaitForPreviousFrame();
 bool Reset();
-void Cleanup();
+bool Cleanup();
 
 IDXGIFactory4* dxgiFactory;
 ID3D12Device* device;

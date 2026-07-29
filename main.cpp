@@ -11,6 +11,7 @@ UINT g_rtvDescriptorSize; // size of rtv description (in pixels?), i.e., all fro
 std::vector<Model*> g_models;
 std::vector<ModelInstance*> g_modelInstances;
 int g_numInstances;
+int g_measurementFrameNumber = 0;
 
 constexpr float n = 0.01f; // near clipping plane
 constexpr float f = 1000.0f; // far clipping plane
@@ -104,6 +105,29 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 {
 	InitConsole();
 
+	int argc = 0;
+	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+
+	if (argv == nullptr)
+	{
+		return {};
+	}
+
+	std::vector<std::wstring> arguments;
+	arguments.reserve(argc);
+
+	for (int i = 0; i < argc; ++i)
+	{
+		arguments.emplace_back(argv[i]);
+		//std::wcout << arguments[i].c_str() << L"\n";
+	}
+
+	int numObjectsToRender = -1;
+
+	numObjectsToRender = std::stoi(arguments[2]);
+
+	LocalFree(argv);
+
 #if BENCHMARK
 	std::cout << "------- Benchmarking Enabled --------------\n";
 	g_benchmarker.IsFirstRender = true;
@@ -120,8 +144,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		return 1;
 	}
 
-	std::cout << "Enter number of instances per model to render: ";
-	std::cin >> g_numInstances;
+	if (numObjectsToRender != -1)
+	{
+		g_numInstances = numObjectsToRender;
+	}
+	else
+	{
+		std::cout << "Enter number of instances per model to render: ";
+		std::cin >> g_numInstances;
+	}
 
 #if BENCHMARK
 	Benchmarker::StartTime(g_benchmarker.LoadingMetricsData.InitTime);
@@ -136,14 +167,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	}
 #if BENCHMARK
 	Benchmarker::StopTime(g_benchmarker.LoadingMetricsData.InitTime);
+
+	g_benchmarker.Init(STABILIZATION_FRAME_COUNT, MEASUREMENT_FRAME_COUNT, g_numInstances);
+
+	int overallFrameNumber = 0;
+
 #endif
 
 	MSG msg;
 	ZeroMemory(&msg, sizeof(MSG));
-
-	g_benchmarker.Init(300, 1000);
-
-	int frameCount = 0;
 
 	while (Running)
 	{
@@ -162,35 +194,32 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 			//PIXBeginEvent(PIX_COLOR_DEFAULT, "Update
 
 #if BENCHMARK
-			if (frameCount > g_benchmarker.MeasurementFrameCount + g_benchmarker.StabilizationFrameCount)
+			if (overallFrameNumber > g_benchmarker.LastMeasurementFrameNumber)
 			{
 				g_benchmarker.Report();
 				break;
 			}
 
-			Benchmarker::SteadyStateFrameMetrics frameMetrics{};
-			if (frameCount > g_benchmarker.StabilizationFrameCount)
+			if (overallFrameNumber > g_benchmarker.LastStabilizationFrameNumber)
 			{
-				Benchmarker::StartTime(frameMetrics.CpuTime);
-				//std::cout << "Cpu epoch time actual for frame: " << frameCount << " is " << frameMetrics.CpuTime << "\n";
+				//std::cout << g_benchmarker.SSData.CpuFrameTimes[measurementFrameNumber] << "\n";
+				Benchmarker::StartTime(g_benchmarker.SSData.CpuFrameTimes[g_measurementFrameNumber]);
+				//std::cout << "Cpu epoch time actual for frame: " << measurementFrameNumber << " is " << g_benchmarker.SSData.CpuFrameTimes[measurementFrameNumber] << "\n";
 			}
 #endif
 			Update();
+			Render();
 
 #if BENCHMARK
-			if (frameCount > g_benchmarker.StabilizationFrameCount)
+			if (overallFrameNumber > g_benchmarker.LastStabilizationFrameNumber)
 			{
-				Benchmarker::StopTime(frameMetrics.CpuTime);
-				g_benchmarker.SteadyStateFrameMetricsData.push_back(frameMetrics);
-				//std::cout << "Cpu ms duration for frame: " << frameCount << " is " << frameMetrics.CpuTime << "\n";
+				Benchmarker::StopTime(g_benchmarker.SSData.CpuFrameTimes[g_measurementFrameNumber]);
+				g_measurementFrameNumber++;
+				//std::cout << "Cpu ms duration for frame: " << frameCount << " is " << frameMetrics.CpuFrameTime << "\n";
 			}
 
-			frameCount++;
+			overallFrameNumber++;
 #endif
-			//PIXEndEvent();
-
-			Render(); // execute the command queue (rendering the scene is the result of the gpu executing the command lists)
-
 			//PIXEndEvent();
 		}
 	}
@@ -700,7 +729,7 @@ bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t buffe
 bool Update()
 {
 	const float r = 50.0f;
-	float alpha = (3.14159f - theta) / 2.0f;
+	float alpha = (PI - theta) / 2.0f;
 	float hyp = 2 * r * std::sin(theta / 2.0f);
 
 	float newX = -hyp * sin(alpha);
@@ -769,6 +798,10 @@ bool UpdatePipeline()
 	// reset, now ready for recording
 	hr = commandList->Reset(commandAllocators[g_frameIndex], pipelineStateObject);
 	PROMPTFAIL(hr, "Failed to reset command LIST");
+
+#if BENCHMARK 1
+	commandList->EndQuery(g_benchmarker.TimestampQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 0);
+#endif
 
 	// change from present state to render target state for recording
 	D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -853,13 +886,29 @@ bool UpdatePipeline()
 		D3D12_RESOURCE_STATE_PRESENT
 	);
 	commandList->ResourceBarrier(1, &barrier2);
+
+#if BENCHMARK 1
+	commandList->EndQuery(g_benchmarker.TimestampQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 1);
+
+	D3D12_RESOURCE_BARRIER queryBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		g_benchmarker.TimestampDataResource,
+		D3D12_RESOURCE_STATE_COMMON,
+		D3D12_RESOURCE_STATE_COPY_DEST
+	);
+	commandList->ResourceBarrier(1, &queryBarrier);
+
+	commandList->ResolveQueryData(g_benchmarker.TimestampQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 0, 2, g_benchmarker.TimestampDataResource, 0);
+
+	void* mapped = nullptr;
+	D3D12_RANGE timestampRangeBegin{ 0,2 * sizeof(UINT64) };
+	g_benchmarker.TimestampDataResource->Map(0, &timestampRangeBegin, &mapped);
+
+	UINT64* mappedValues = (UINT64*)mapped;
+	double gpuTimeFrame = 1000.0 * (mappedValues[1] - mappedValues[0]) / (double)g_benchmarker.GpuTimestampFrequency;
+	g_benchmarker.SSData.GpuFrameTimes[g_measurementFrameNumber] = gpuTimeFrame;
+
+#endif
 	hr = commandList->Close();
-
-	ID3D12CommandList* commandLists[]{ commandList };
-
-	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
-
-	PROMPTFAIL(hr, "Failed to close command list ");
 
 	theta += radiansPerSec;
 
@@ -873,6 +922,12 @@ bool Render()
 	{
 		PROMPTFAIL(hr, "Failed to record!\n");
 	}
+
+	ID3D12CommandList* commandLists[]{ commandList };
+
+	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+
+	PROMPTFAIL(hr, "Failed to close command list ");
 
 	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
 
@@ -1090,6 +1145,39 @@ bool Init()
 
 	commandList->Reset(commandAllocators[g_frameIndex], nullptr);
 
+#if BENCHMARK 1
+	D3D12_QUERY_HEAP_DESC timestampQueryHeapDesc{};
+	timestampQueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+	timestampQueryHeapDesc.Count = 2;
+	HRESULT hr = device->CreateQueryHeap(&timestampQueryHeapDesc, IID_PPV_ARGS(&g_benchmarker.TimestampQueryHeap));
+	PROMPTFAIL(hr, "Failed to create timestamp query heap. ");
+
+	commandQueue->GetTimestampFrequency(&g_benchmarker.GpuTimestampFrequency);
+	std::cout << "GPU Frequency: " << g_benchmarker.GpuTimestampFrequency << "\n";
+
+	D3D12_HEAP_PROPERTIES timestampDataResourceHeapProperties{ D3D12_HEAP_TYPE_READBACK };
+	D3D12_RESOURCE_DESC timestampDataResourceDesc{};
+	timestampDataResourceDesc.Alignment = 0;
+	timestampDataResourceDesc.DepthOrArraySize = 1;
+	timestampDataResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	timestampDataResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	timestampDataResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+	timestampDataResourceDesc.Height = 1;
+	timestampDataResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	timestampDataResourceDesc.MipLevels = 1;
+	timestampDataResourceDesc.SampleDesc = { 1, 0 };
+	timestampDataResourceDesc.Width = 2 * sizeof(UINT64);
+	device->CreateCommittedResource(
+		&timestampDataResourceHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&timestampDataResourceDesc,
+		D3D12_RESOURCE_STATE_COMMON,
+		nullptr,
+		IID_PPV_ARGS(&g_benchmarker.TimestampDataResource)
+	);
+
+#endif
+
 	// Create the models
 	Model* oakTreeModel = new Model(oakTreeModelBasePath, "OakTree");
 	g_models.push_back(oakTreeModel);
@@ -1207,13 +1295,13 @@ bool Init()
 	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 
 	fenceValuesCPU[g_frameIndex]++;
-	HRESULT hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
-	PROMPTFAIL(hr, "Failed to signal fence with error ");
+	HRESULT hr2 = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
+	PROMPTFAIL(hr2, "Failed to signal fence with error ");
 
 	return true;
 }
 
-void Cleanup()
+bool Cleanup()
 {
 	HRESULT hr;
 
@@ -1225,39 +1313,79 @@ void Cleanup()
 		WaitForSingleObject(fenceEvent, INFINITE);
 	}
 
+	commandList->Close();
+
+	ID3D12CommandList* lists[] = { commandList };
+	commandQueue->ExecuteCommandLists(1, lists);
+
+	fenceValuesCPU[g_frameIndex]++;
+	hr = commandQueue->Signal(fencesGPU[g_frameIndex], fenceValuesCPU[g_frameIndex]);
+	PROMPTFAIL(hr, "Failed to signal fence with error ");
+
+	for (int i = 0; i < g_frameBufferCount; i++)
+	{
+		commandList->Reset(commandAllocators[i], nullptr);
+	}
+
+	if (commandList)
+	{
+		commandList->ClearState(nullptr);
+	}
+	// The command list should no longer retain recorded state.
+	SAFE_RELEASE(commandList);
+
+	// Delete application-owned objects while the device still exists.
+	for (ModelInstance* instance : g_modelInstances)
+	{
+		delete instance;
+	}
+	g_modelInstances.clear();
+
+	for (Model* model : g_models)
+	{
+		delete model;
+	}
+	g_models.clear();
+
+	// Release swap-chain buffers before destroying the swap chain.
+	for (int i = 0; i < g_frameBufferCount; ++i)
+	{
+		SAFE_RELEASE(renderTargets[i]);
+	}
+
 	BOOL isFullscreen = FALSE;
+
 	if (swapChain)
 	{
-		if (swapChain->GetFullscreenState(&isFullscreen, NULL))
+		hr = swapChain->GetFullscreenState(&isFullscreen, nullptr);
+
+		if (SUCCEEDED(hr) && isFullscreen)
 		{
-			swapChain->SetFullscreenState(FALSE, NULL);
+			swapChain->SetFullscreenState(FALSE, nullptr);
 		}
 	}
 
+
 	SAFE_RELEASE(swapChain);
-	SAFE_RELEASE(rtvDescriptorHeap);
-	SAFE_RELEASE(commandQueue);
-	SAFE_RELEASE(commandList);
-	SAFE_RELEASE(device);
+
+	for (int i = 0; i < g_frameBufferCount; ++i)
+	{
+		SAFE_RELEASE(commandAllocators[i]);
+	}
+
 	SAFE_RELEASE(pipelineStateObject);
 	SAFE_RELEASE(rootSignature);
+	SAFE_RELEASE(rtvDescriptorHeap);
 
-	for (int i = 0; i < g_models.size(); i++)
+	for (int i = 0; i < g_frameBufferCount; ++i)
 	{
-		delete(g_models[i]);
-	}
-
-	for (int i = 0; i < g_modelInstances.size(); i++)
-	{
-		delete(g_modelInstances[i]);
-	}
-
-	/*for (int i = 0; i < g_frameBufferCount; i++)
-	{
-		SAFE_RELEASE(renderTargets[i]);
-		SAFE_RELEASE(commandAllocators[i]);
 		SAFE_RELEASE(fencesGPU[i]);
-	}*/
+	}
+
+	SAFE_RELEASE(commandQueue);
+	SAFE_RELEASE(device);
+
+	return true;
 }
 
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "Utils.h"
 #include <chrono>
+#include <d3d12.h>
 #include <vector>
 
 class Benchmarker
@@ -9,10 +10,11 @@ class Benchmarker
 private:
 	struct SteadyStateCalculatedMetrics
 	{
-		double MaxCpuTime;
-		double MinCpuTime;
+		double MaxCpuFrameTime;
+		double MinCpuFrameTime;
 		double MedianCpuFrameTime;
 		double P95CpuFrameTime;
+		double P99CpuFrameTime;
 		double MedianGpuFrameTime;
 		double P95GpuFrameTime;
 		int FramesAbove16ms;
@@ -32,8 +34,6 @@ private:
 	void CalculateSteadyStateMetrics();
 	void CalculateLoadingMetrics();
 
-
-
 public:
 	struct LoadingMetrics
 	{
@@ -48,18 +48,23 @@ public:
 
 	struct SteadyStateFrameMetrics
 	{
-		double CpuTime;
-		double GpuTime;
-		int NumVisibleObjects;
-		int NumDrawCalls;
+		std::vector<double> CpuFrameTimes;
+		std::vector<double> GpuFrameTimes;
+		std::vector<int> NumDrawCalls;
+		std::vector<int> NumVisibleObjects;
+		std::vector<int> NumTrianglesSubmitted;
 	};
 
-	std::vector<SteadyStateFrameMetrics> SteadyStateFrameMetricsData{};
+	SteadyStateFrameMetrics SSData{};
+	int LastStabilizationFrameNumber{};
+	int LastMeasurementFrameNumber{};
+	int NumInstancesToRender{};
+	UINT64 GpuTimestampFrequency{};
 
-	int StabilizationFrameCount{};
-	int MeasurementFrameCount{};
+	ID3D12QueryHeap* TimestampQueryHeap{};
+	ID3D12Resource* TimestampDataResource{};
 
-	void Init(int stabilizationFrameCount, int measurementFrameCount);
+	void Init(int stabilizationFrameCount, int measurementFrameCount, int numObjectsToRender);
 
 	void Report();
 
