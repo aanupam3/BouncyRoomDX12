@@ -118,6 +118,11 @@ Transform::Transform()
 	SetScale(1, 1, 1);
 }
 
+Transform::Transform(DirectX::XMMATRIX transformationMatrix)
+{
+	SetAndExtractFromTransformationMatrix(transformationMatrix);
+}
+
 Transform::Transform(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 rotation, DirectX::XMFLOAT3 scale)
 {
 	SetPosition(position.x, position.y, position.z);

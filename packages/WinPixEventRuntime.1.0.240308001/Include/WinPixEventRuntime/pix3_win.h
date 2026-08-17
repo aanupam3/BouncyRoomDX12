@@ -434,74 +434,74 @@ __forceinline HINSTANCE WINAPI PIXOpenCaptureInUI(PCWSTR)
 
 #if defined(__d3d12_h__)
 
-inline void PIXInsertTimingMarkerOnContextForBeginEvent(_In_ ID3D12GraphicsCommandList* commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertTimingMarkerOnContextForBeginEvent(_In_ ID3D12GraphicsCommandList* m_commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandList->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandList->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertTimingMarkerOnContextForBeginEvent(_In_ ID3D12CommandQueue* commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertTimingMarkerOnContextForBeginEvent(_In_ ID3D12CommandQueue* m_commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandQueue->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandQueue->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertTimingMarkerOnContextForSetMarker(_In_ ID3D12GraphicsCommandList* commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertTimingMarkerOnContextForSetMarker(_In_ ID3D12GraphicsCommandList* m_commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandList->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandList->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertTimingMarkerOnContextForSetMarker(_In_ ID3D12CommandQueue* commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertTimingMarkerOnContextForSetMarker(_In_ ID3D12CommandQueue* m_commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandQueue->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandQueue->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertTimingMarkerOnContextForEndEvent(_In_ ID3D12GraphicsCommandList* commandList, UINT8 eventType)
+inline void PIXInsertTimingMarkerOnContextForEndEvent(_In_ ID3D12GraphicsCommandList* m_commandList, UINT8 eventType)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandList->EndEvent();
+    m_commandList->EndEvent();
 }
 
-inline void PIXInsertTimingMarkerOnContextForEndEvent(_In_ ID3D12CommandQueue* commandQueue, UINT8 eventType)
+inline void PIXInsertTimingMarkerOnContextForEndEvent(_In_ ID3D12CommandQueue* m_commandQueue, UINT8 eventType)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandQueue->EndEvent();
+    m_commandQueue->EndEvent();
 }
 
-inline void PIXInsertGPUMarkerOnContextForBeginEvent(_In_ ID3D12GraphicsCommandList* commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertGPUMarkerOnContextForBeginEvent(_In_ ID3D12GraphicsCommandList* m_commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandList->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandList->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertGPUMarkerOnContextForBeginEvent(_In_ ID3D12CommandQueue* commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertGPUMarkerOnContextForBeginEvent(_In_ ID3D12CommandQueue* m_commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandQueue->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandQueue->BeginEvent(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertGPUMarkerOnContextForSetMarker(_In_ ID3D12GraphicsCommandList* commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertGPUMarkerOnContextForSetMarker(_In_ ID3D12GraphicsCommandList* m_commandList, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandList->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandList->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertGPUMarkerOnContextForSetMarker(_In_ ID3D12CommandQueue* commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
+inline void PIXInsertGPUMarkerOnContextForSetMarker(_In_ ID3D12CommandQueue* m_commandQueue, UINT8 eventType, _In_reads_bytes_(size) void* data, UINT size)
 {
     UNREFERENCED_PARAMETER(eventType);
-    commandQueue->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
+    m_commandQueue->SetMarker(WINPIX_EVENT_PIX3BLOB_V2, data, size);
 }
 
-inline void PIXInsertGPUMarkerOnContextForEndEvent(_In_ ID3D12GraphicsCommandList* commandList, UINT8, void*, UINT)
+inline void PIXInsertGPUMarkerOnContextForEndEvent(_In_ ID3D12GraphicsCommandList* m_commandList, UINT8, void*, UINT)
 {
-    commandList->EndEvent();
+    m_commandList->EndEvent();
 }
 
-inline void PIXInsertGPUMarkerOnContextForEndEvent(_In_ ID3D12CommandQueue* commandQueue, UINT8, void*, UINT)
+inline void PIXInsertGPUMarkerOnContextForEndEvent(_In_ ID3D12CommandQueue* m_commandQueue, UINT8, void*, UINT)
 {
-    commandQueue->EndEvent();
+    m_commandQueue->EndEvent();
 }
 
 #endif

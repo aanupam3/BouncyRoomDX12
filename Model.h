@@ -2,8 +2,10 @@
 #include "ModelGLTF.h"
 #include "Transform.h"
 #include <nlohmann/json.hpp>
+#include <wrl.h>
 
 typedef unsigned char byte;
+using Microsoft::WRL::ComPtr;
 
 struct ModelBinData {
 	byte* binData;
@@ -54,7 +56,7 @@ struct MeshPrimitive
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
 	UINT NumIndices;
 
-	std::vector<Texture*> Textures;
+	std::vector<Texture> Textures;
 	std::vector<Shader> Shaders;
 
 	// Note that WVP resources are located in model instances as they will be different for each instance
@@ -63,7 +65,7 @@ struct MeshPrimitive
 	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayoutList{};
 };
 
-struct NodeLocal
+struct LocalNode
 {
 	Transform NodeTransform{};
 	std::vector<int> ChildrenNodeIndexes{};
@@ -74,7 +76,7 @@ struct NodeLocal
 struct Mesh
 {
 	std::string Name;
-	std::vector<MeshPrimitive*> Primitives{};
+	std::vector<MeshPrimitive> Primitives;
 	int NodeIndex;
 };
 
@@ -84,20 +86,21 @@ private:
 	std::string m_modelBasePath{};
 	std::string m_glTFPath{};
 	std::string m_binPath{};
+
 	ModelGLTF::ModelJson* m_modelJson{};
+	ModelBinData* m_binData;
 
-	const ModelBinData* m_binData{};
-	ID3D12Resource* m_modelBinaryDefaultHeap{};
+	ComPtr<ID3D12Resource> m_modelBinaryDefaultHeap{};
 
-	std::vector<Mesh*> m_meshes{};
-	std::vector<NodeLocal*> m_nodesLocalSpace{};
+	std::vector<Mesh> m_meshes{};
+	std::vector<LocalNode> m_nodesLocalSpace{};
 
 	void ExtractDataFromGLTF();
 	void SetNodes();
 	void SetMeshes();
 
-	void SetMeshTextures(int meshIndex);
-	void SetMeshShaders(Mesh* mesh);
+	void SetMeshTextures(int meshIndex, Mesh& mesh);
+	void SetMeshShaders(Mesh& mesh);
 
 public:
 	Model(std::string modelBasePath, std::string name = "");
@@ -110,8 +113,8 @@ public:
 	// getters
 	const ModelGLTF::ModelJson* GetModelJson() const { return m_modelJson; }
 	const ModelBinData* GetBinData() const { return m_binData; }
-	const std::vector<Mesh*>& GetMeshes() const { return m_meshes; }
-	const std::vector<NodeLocal*>& GetNodes() const { return m_nodesLocalSpace; }
+	std::vector<Mesh>& GetMeshes() { return m_meshes; }
+	std::vector<LocalNode>& GetNodes() { return m_nodesLocalSpace; }
 
-	ID3D12Resource* ModelBinResource;
+	ComPtr<ID3D12Resource> ModelBinResource;
 };

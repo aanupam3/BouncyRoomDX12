@@ -1,10 +1,11 @@
 #pragma once
+#include "IApplication.h"
 #include "Utils.h"
 #include <chrono>
 #include <d3d12.h>
 #include <vector>
 
-class Benchmarker
+class Benchmarker : public IApplication
 {
 
 private:
@@ -20,6 +21,27 @@ private:
 		int FramesAbove16ms;
 		float AvgVisibleObjects;
 		float AvgDrawCalls;
+
+		/*AvgCpuFrameTime
+		MedianCpuFrameTime
+		P95CpuFrameTime
+		P99CpuFrameTime
+
+		AvgGpuFrameTime
+		MedianGpuFrameTime
+		P95GpuFrameTime
+		P99GpuFrameTime
+
+		TotalFramesMeasured
+		FramesBelow60FPS
+		FrameBudgetMissRate
+
+		AvgRenderedObjects
+		AvgVisibleObjects
+		AvgDrawCalls
+		AvgTrianglesRendered
+		AvgInstancesRendered*/
+
 	} m_steadyStateCalculatedMetrics;
 
 	enum MeasuringState
@@ -34,7 +56,11 @@ private:
 	void CalculateSteadyStateMetrics();
 	void CalculateLoadingMetrics();
 
+
 public:
+	Benchmarker(int stabilizationFrameCount, int measurementFrameCount);
+	~Benchmarker() { Shutdown(); }
+
 	struct LoadingMetrics
 	{
 		double InitTime;
@@ -43,8 +69,6 @@ public:
 		double GPUResourceCreationPlusUploadTime;
 		double ShaderCompilationTime;
 	} LoadingMetricsData;
-
-	bool IsFirstRender{};
 
 	struct SteadyStateFrameMetrics
 	{
@@ -64,9 +88,17 @@ public:
 	ID3D12QueryHeap* TimestampQueryHeap{};
 	ID3D12Resource* TimestampDataResource{};
 
-	void Init(int stabilizationFrameCount, int measurementFrameCount, int numObjectsToRender);
+	int CurrentMeasurementFrameNumber = 0;
+	bool IsFirstRender{};
+	bool IsRunning = false;
 
+	float m_cameraRevolutionTheta = 0;
+	const float m_radiansPerSec = -0.001f;
+
+	bool Init(Scene&) override;
+	bool Update(Scene&) override;
 	void Report();
+	bool Shutdown() override;
 
 	// --------------- Static functions -------------------------------------------------------
 

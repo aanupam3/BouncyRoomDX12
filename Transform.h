@@ -36,6 +36,7 @@ public:
 	void ScaleBy(float x, float y, float z);
 
 	Transform();
+	Transform(DirectX::XMMATRIX transformationMatrix);
 	Transform(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 rotation, DirectX::XMFLOAT3 scale);
 	Transform(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 rotation);
 	Transform(DirectX::XMFLOAT3 position);

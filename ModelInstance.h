@@ -3,34 +3,39 @@
 #include "Utils.h"
 #include <d3d12.h>
 #include <vector>
+#include <wrl.h>
 
-struct NodeWorld
+using Microsoft::WRL::ComPtr;
+
+struct WorldNode
 {
 	Transform NodeTransform{};
+
 	std::vector<int> ChildrenNodeIndexes{};
 	int ParentNodeIndex;
 	int MeshIndex = -1;
 
-	std::vector<ID3D12DescriptorHeap*> PrimitiveShaderVisibleDescriptorHeaps{};
+	std::vector<ComPtr<ID3D12DescriptorHeap>> PrimitiveShaderVisibleDescriptorHeaps{};
 
 	std::vector<float> WVPMatrixVector;
-	ID3D12Resource* WVPMatrixGPUResource{};
+	ComPtr<ID3D12Resource> WVPMatrixGPUResource{};
 };
 
 class ModelInstance
 {
 private:
-	std::vector<NodeWorld*> m_nodesWorldSpace{};
+	std::vector<WorldNode> m_nodesWorldSpace{};
 	Transform m_worldTransform;
 
 public:
-	const Model* BaseModel;
+	Model* BaseModel;
+	long Id;
 
-	ModelInstance(const Model* model, const Transform& worldTransform);
+	ModelInstance(Model& model, const Transform& worldTransform);
 	~ModelInstance();
 
 	void UpdateTransform(const Transform& newTransform);
 
-	const std::vector<NodeWorld*>& GetNodes() const { return m_nodesWorldSpace; }
+	std::vector<WorldNode>& GetNodes() { return m_nodesWorldSpace; }
 	const Transform& GetTransform() const { return m_worldTransform; }
 };

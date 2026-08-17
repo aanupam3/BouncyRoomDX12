@@ -5,9 +5,13 @@
 #endif
 
 #include "utils.h"
+#include <wrl.h>
+
+using Microsoft::WRL::ComPtr;
 
 //#define D3DCOMPILE_DEBUG 1
 #define CHECK_FAIL(fn) if(!fn) { return false; } 
+#define BREAK_IF_FAIL(fn, msg)  if(!fn) { std::cerr << msg; break; } 
 
 #define LOGHR(hr, msg) \
 std::string fullMsg = msg + Utils::HrToAString(hr); \
@@ -17,7 +21,7 @@ MessageBoxA(0, fullMsg.c_str(), "Error", MB_OK);
 LOGHR(hr, msg); \
 return false;
 
-#define PROMPTFAIL(hr, msg) \
+#define PROMPTFAILHR(hr, msg) \
 if(FAILED(hr)) \
 {\
 LOG_HR_AND_RETURN_FAIL(hr, msg);\
@@ -30,9 +34,6 @@ LOG_HR_AND_RETURN_FAIL(hr, msg);\
 // 2 = 30 fps
 #define VSYNC 0 
 
-#define BENCHMARK 0
-
 #define PI 3.14159
 
-#define STABILIZATION_FRAME_COUNT 300
-#define MEASUREMENT_FRAME_COUNT 2000
+#define DIRECTXM_VECTOR_SIZE 16
