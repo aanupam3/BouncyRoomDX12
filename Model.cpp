@@ -273,12 +273,13 @@ void Model::SetMeshShaders(Mesh& mesh)
 void Model::SetNodes()
 {
 	UINT numNodes = static_cast<UINT>(m_modelJson->nodes.size());
-	m_nodesLocalSpace.reserve(numNodes);
+	m_nodesLocalSpace.clear();
+	m_nodesLocalSpace.resize(numNodes);
 
 	for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
 		ModelGLTF::Node& nodeJson = m_modelJson->nodes[nodeIndex];
-		LocalNode node{};
+		LocalNode& node = m_nodesLocalSpace[nodeIndex];
 
 		node.NodeTransform.SetAndExtractFromTransformationMatrix(DirectX::XMMATRIX(nodeJson.matrix.data()));
 
@@ -289,8 +290,6 @@ void Model::SetNodes()
 		}
 
 		node.ChildrenNodeIndexes = nodeJson.children;
-
-		m_nodesLocalSpace.push_back(node);
 	}
 
 	for (UINT nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)

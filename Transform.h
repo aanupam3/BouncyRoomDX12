@@ -40,6 +40,6 @@ public:
 	Transform(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 rotation, DirectX::XMFLOAT3 scale);
 	Transform(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 rotation);
 	Transform(DirectX::XMFLOAT3 position);
-	Transform(const Transform&);
+	Transform(const Transform&) = default;
 };
 

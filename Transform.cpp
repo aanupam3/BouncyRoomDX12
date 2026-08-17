@@ -16,7 +16,7 @@ void Transform::SetAndExtractFromTransformationMatrix(DirectX::XMMATRIX transfor
 	m_translationMatrix = DirectX::XMMatrixTranslationFromVector(outTranslationVector);
 
 	// Rotation calculations
-	DirectX::XMFLOAT4 rotationQuaternion = { DirectX::XMVectorGetX(outRotationVectorQuat), DirectX::XMVectorGetY(outRotationVectorQuat), DirectX::XMVectorGetZ(outRotationVectorQuat), DirectX::XMVectorGetZ(outRotationVectorQuat) };
+	DirectX::XMFLOAT4 rotationQuaternion = { DirectX::XMVectorGetX(outRotationVectorQuat), DirectX::XMVectorGetY(outRotationVectorQuat), DirectX::XMVectorGetZ(outRotationVectorQuat), DirectX::XMVectorGetW(outRotationVectorQuat) };
 	const float x = rotationQuaternion.x;
 	const float y = rotationQuaternion.y;
 	const float z = rotationQuaternion.z;
@@ -142,16 +142,4 @@ Transform::Transform(DirectX::XMFLOAT3 position)
 	SetPosition(position.x, position.y, position.z);
 	SetRotationRadians(0, 0, 0);
 	SetScale(1, 1, 1);
-}
-
-Transform::Transform(const Transform& srcTransform)
-{
-	DirectX::XMFLOAT3 srcPosition = srcTransform.GetPosition();
-	SetPosition(srcPosition.x, srcPosition.y, srcPosition.z);
-
-	DirectX::XMFLOAT3 srcRotation = srcTransform.GetRotationRadians();
-	SetRotationRadians(srcRotation.x, srcRotation.y, srcRotation.z);
-
-	DirectX::XMFLOAT3 srcScale = srcTransform.GetScale();
-	SetScale(srcScale.x, srcScale.y, srcScale.z);
 }

@@ -19,6 +19,11 @@ ModelInstance::ModelInstance(Model& model, const Transform& worldTransform) : Ba
 
 		DirectX::XMMATRIX instanceNodeLocalTransformationMatrix = baseNode.NodeTransform.GetTransformationMatrix();
 		worldNode.NodeTransform.SetAndExtractFromTransformationMatrix(instanceNodeLocalTransformationMatrix);
+
+		/*if (nodeIndex == 0)
+		{
+			Utils::printMatrix(baseNode.NodeTransform.GetTransformationMatrix(), "Base Node transformation matrix: " + std::to_string(0));
+		}*/
 	}
 
 	// Upgrade nodes to model space
@@ -56,6 +61,10 @@ void ModelInstance::UpdateTransform(const Transform& newTransform)
 			DirectX::XMMatrixMultiply(node.NodeTransform.GetTransformationMatrix(), worldTransformationMatrix)
 		);
 
-		//Utils::printMatrix(node->NodeTransform.GetTransformationMatrix(), "Updated world space transform for node " + std::to_string(i));
+		/*if (i == 0)
+		{
+			Utils::printMatrix(node.NodeTransform.GetTransformationMatrix(), "Updated world space transform for node " + std::to_string(i));
+		}*/
+
 	}
 }
