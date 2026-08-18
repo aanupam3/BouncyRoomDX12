@@ -1,3 +1,4 @@
+#include "Benchmarker.h"
 #include "d3dx12.h"
 #include "IRenderingEngine.h"
 #include "Scene.h"
@@ -18,9 +19,10 @@ using Microsoft::WRL::ComPtr;
 class RenderingEngineD3D12 : public IRenderingEngine
 {
 public:
-	RenderingEngineD3D12(RenderWindow& renderWindow, GraphicsAPI graphicsAPI = GraphicsAPI::Direct3D12)
-		: m_renderWindow(renderWindow), m_graphicsAPI(graphicsAPI) {
-	}
+	RenderingEngineD3D12(
+		RenderWindow& renderWindow,
+		std::shared_ptr<Benchmarker> benchmarker = nullptr,
+		GraphicsAPI graphicsAPI = GraphicsAPI::Direct3D12);
 
 	bool Init(Scene&) override;
 	bool Render(Scene&) override;
@@ -29,6 +31,7 @@ public:
 	GraphicsAPI GetRenderingEngineType() { return m_graphicsAPI; };
 
 private:
+	std::shared_ptr<Benchmarker> m_benchmarker;
 	RenderWindow& m_renderWindow;
 	GraphicsAPI& m_graphicsAPI; // currently only supports D3D12
 
@@ -50,7 +53,7 @@ private:
 	bool SetShaderVisibleDescriptors(ModelInstance& instance, WorldNode& nodeWithMesh);
 	bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSize);
 	bool UpdatePipeline(Scene&);
-	bool UploadTexture(const Texture& texture, bool useWriteToSubResource);
+	bool UploadTexture(Texture& texture, bool useWriteToSubResource = true);
 	bool WaitForPreviousFrame();
 
 	int m_currentFrameIndex{};// current render target view we are on
@@ -74,7 +77,7 @@ private:
 	D3D12_RECT m_scissorRect{};
 
 	ComPtr<ID3D12Fence1> m_fencesGPU[kFrameBufferCount];
-	int m_fenceValuesCPU[kFrameBufferCount];
-	HANDLE WINAPI m_fenceEvent;
+	int m_fenceValuesCPU[kFrameBufferCount]{};
+	HANDLE WINAPI m_fenceEvent{};
 };
 

@@ -31,7 +31,7 @@ struct Texture
 	D3D12_BOX TexBox{};
 
 	byte* PixelData{};
-	ID3D12Resource* GPUResource{};
+	ComPtr<ID3D12Resource> GPUResource{};
 };
 
 enum ShaderType
@@ -89,8 +89,6 @@ private:
 
 	ModelGLTF::ModelJson* m_modelJson{};
 	ModelBinData* m_binData;
-
-	ComPtr<ID3D12Resource> m_modelBinaryDefaultHeap{};
 
 	std::vector<Mesh> m_meshes{};
 	std::vector<LocalNode> m_nodesLocalSpace{};

@@ -35,6 +35,7 @@ public:
 	~ModelInstance();
 
 	void UpdateTransform(const Transform& newTransform);
+	void SetShaderVisibleDescriptors(WorldNode& nodeWithMesh);
 
 	std::vector<WorldNode>& GetNodes() { return m_nodesWorldSpace; }
 	const Transform& GetTransform() const { return m_worldTransform; }

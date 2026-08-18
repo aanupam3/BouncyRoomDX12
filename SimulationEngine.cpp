@@ -1,7 +1,7 @@
 #include "Macros.h"
 #include "SimulationEngine.h"
 
-SimulationEngine::SimulationEngine()
+SimulationEngine::SimulationEngine(std::shared_ptr<Benchmarker> benchmarker) : m_benchmarker(benchmarker)
 {
 }
 
@@ -30,13 +30,27 @@ bool SimulationEngine::Init(Scene& scene)
 
 bool SimulationEngine::Update(Scene& scene)
 {
+	if (scene.state == Scene::RESETTING)
+	{
+		// Don't do anything while scene is resetting
+		return true;
+	}
+
+	std::vector<ModelInstance>& objects = scene.GetObjects();
+
+	// ------------------- COLLISION CHECK ---------------------------------
+
+
+	// ------------------- OBJECT MOVEMENT UPDATE --------------------------
+
+
+	// ------------------- CAMERA MOVEMENT UPDATE --------------------------
 	Camera& mainCamera = scene.GetCamera();
 	const DirectX::XMMATRIX& cameraWorldMatrix = mainCamera.GetTransform().GetTransformationMatrix();
 	const DirectX::XMMATRIX& projectionMatrix = mainCamera.GetProjectionMatrix();
 	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
 	const DirectX::XMMATRIX vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
 
-	std::vector<ModelInstance>& objects = scene.GetObjects();
 	for (ModelInstance& object : objects)
 	{
 		std::vector<WorldNode>& objectNodes = object.GetNodes();

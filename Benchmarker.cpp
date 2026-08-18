@@ -6,172 +6,82 @@
 void Benchmarker::CalculateSteadyStateMetrics()
 {
 	// Sort for Max, Min, Median
-	std::cout << "Cpu frames measured: " << SSData.CpuFrameTimes.size() << "\n";
-	std::sort(SSData.CpuFrameTimes.begin(), SSData.CpuFrameTimes.end());
-
-	m_steadyStateCalculatedMetrics.MinCpuFrameTime = SSData.CpuFrameTimes.front();
-	m_steadyStateCalculatedMetrics.MaxCpuFrameTime = SSData.CpuFrameTimes.back();
+	std::cout << "Total frames measured: " << SSData.CpuFrameTimes.size() << "\n";
 	const std::size_t size = SSData.CpuFrameTimes.size();
 	const std::size_t middle = size / 2;
+	const std::size_t p95Index = static_cast<std::size_t>(std::ceil(0.95 * size)) - 1;
+	const std::size_t p99Index = static_cast<std::size_t>(std::ceil(0.99 * size)) - 1;
 
-	m_steadyStateCalculatedMetrics.MedianCpuFrameTime =
+	// CPU frame times --------------------------------------------------------
+	std::sort(SSData.CpuFrameTimes.begin(), SSData.CpuFrameTimes.end());
+	SSCalculatedMetrics.MedianCpuFrameTime =
 		size % 2 == 0
 		? (SSData.CpuFrameTimes[middle - 1] + SSData.CpuFrameTimes[middle]) / 2.0
 		: SSData.CpuFrameTimes[middle];
+	SSCalculatedMetrics.P95CpuFrameTime = SSData.CpuFrameTimes[p95Index];
+	SSCalculatedMetrics.P99CpuFrameTime = SSData.CpuFrameTimes[p99Index];
 
-	std::cout << "Gpu frames measured: " << SSData.GpuFrameTimes.size() << "\n";
+	// GPU frame times --------------------------------------------------------
 	std::sort(SSData.GpuFrameTimes.begin(), SSData.GpuFrameTimes.end());
-
-	//m_steadyStateCalculatedMetrics.MinGpuFrameTime = SSData.GpuFrameTimes.front();
-	//m_steadyStateCalculatedMetrics.MaxGpuFrameTime = SSData.GpuFrameTimes.back();
-
-	m_steadyStateCalculatedMetrics.MedianGpuFrameTime =
+	SSCalculatedMetrics.MedianGpuFrameTime =
 		size % 2 == 0
 		? (SSData.GpuFrameTimes[middle - 1] + SSData.GpuFrameTimes[middle]) / 2.0
 		: SSData.GpuFrameTimes[middle];
+	SSCalculatedMetrics.P95GpuFrameTime = SSData.GpuFrameTimes[p95Index];
+	SSCalculatedMetrics.P99GpuFrameTime = SSData.GpuFrameTimes[p99Index];
+
+	// Draw Calls --------------------------------------------------------
+	std::sort(SSData.NumDrawCalls.begin(), SSData.NumDrawCalls.end());
+	SSCalculatedMetrics.MedianDrawCalls =
+		size % 2 == 0
+		? (SSData.NumDrawCalls[middle - 1] + SSData.NumDrawCalls[middle]) / 2.0f
+		: SSData.NumDrawCalls[middle];
 }
 
 Benchmarker::Benchmarker(int stabilizationFrameCount, int measurementFrameCount)
 {
-	LastStabilizationFrameNumber = stabilizationFrameCount;
-	LastMeasurementFrameNumber = measurementFrameCount + stabilizationFrameCount;
+	EndStabilizationFrameNumber = stabilizationFrameCount;
+	EndMeasurementFrameNumber = measurementFrameCount + stabilizationFrameCount;
+	FramesToMeasureCount = measurementFrameCount;
 
-	SSData.CpuFrameTimes.resize(measurementFrameCount);
-	SSData.GpuFrameTimes.resize(measurementFrameCount);
-	SSData.NumDrawCalls.resize(measurementFrameCount);
-	SSData.NumVisibleObjects.resize(measurementFrameCount);
-	SSData.NumTrianglesSubmitted.resize(measurementFrameCount);
+	Reset();
 }
 
-
-bool Benchmarker::Update(Scene& scene)
+void Benchmarker::Reset()
 {
-	return true;
-	//IsFirstRender = true;
-	//StartTime(LoadingMetricsData.LoadTimeToFirstRenderedFrame);
-	////std::cout << "Start Load epoch time for first frame: " << LoadingMetricsData.LoadTimeToFirstRenderedFrame <<"\n";
+	SSCalculatedMetrics = {};
+	CurrentOverallFrameNumber = 0;
+	CurrentMeasurementFrameNumber = 0;
 
+	SSData.CpuFrameTimes.clear();
+	SSData.CpuFrameTimes.resize(FramesToMeasureCount);
 
-	//StartTime(LoadingMetricsData.InitTime);
+	SSData.GpuFrameTimes.clear();
+	SSData.GpuFrameTimes.resize(FramesToMeasureCount);
 
-	//StopTime(LoadingMetricsData.InitTime);
+	SSData.NumDrawCalls.clear();
+	SSData.NumDrawCalls.resize(FramesToMeasureCount);
 
-	//int overallFrameNumber = 0;
+	SSData.NumVisibleObjects.clear();
+	SSData.NumVisibleObjects.resize(FramesToMeasureCount);
 
-	//if (overallFrameNumber > LastMeasurementFrameNumber)
-	//{
-	//	Report();
-	//}
-
-	//if (overallFrameNumber > LastStabilizationFrameNumber)
-	//{
-	//	//std::cout << SSData.CpuFrameTimes[measurementFrameNumber] << "\n";
-	//	StartTime(SSData.CpuFrameTimes[CurrentMeasurementFrameNumber]);
-	//	//std::cout << "Cpu epoch time actual for frame: " << measurementFrameNumber << " is " << SSData.CpuFrameTimes[measurementFrameNumber] << "\n";
-	//}
-
-
-	//if (overallFrameNumber > LastStabilizationFrameNumber)
-	//{
-	//	StopTime(SSData.CpuFrameTimes[CurrentMeasurementFrameNumber]);
-	//	CurrentMeasurementFrameNumber++;
-	//	//std::cout << "Cpu ms duration for frame: " << frameCount << " is " << frameMetrics.CpuFrameTime << "\n";
-	//}
-
-	//overallFrameNumber++;
-
-	//const float r = 50.0f;
-	//float alpha = (PI - m_cameraRevolutionTheta) / 2.0f;
-	//float hyp = 2 * r * std::sin(m_cameraRevolutionTheta / 2.0f);
-
-	//float newX = -hyp * sin(alpha);
-	//float newY = 50.0f;
-	//float newZ = hyp * cos(alpha);
-
-	//const float pitch = DirectX::XMConvertToRadians(45); // X rotation
-	//const float yaw = m_cameraRevolutionTheta; // Y rotation
-	//const float roll = DirectX::XMConvertToRadians(0); // Z rotation
-
-	//Camera& sceneCamera = scene.GetCamera();
-	//const DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
-	//const DirectX::XMMATRIX translation = DirectX::XMMatrixTranslation(newX, newY, newZ);
-	//Transform newCameraTransform{ rotation * translation };
-	//sceneCamera.SetTransform(newCameraTransform);
-
-	//m_cameraRevolutionTheta += m_radiansPerSec;
-}
-
-
-bool Benchmarker::Init(Scene& scene)
-{
-	// Starting number of objects ----------------------------------------------------------------------------
-	//std::cout << "------- Benchmarking Enabled --------------\n";
-	//int numStartingObjects = 50; // start here and move up
-	//std::cout << "Starting Objects to Render: " << numStartingObjects << "\n";
-
-	//const std::string modelBasePath{ "./models/OakTree/" };
-	//scene.AddModel({ modelBasePath, "OakTree" });
-
-	//scene.GetObjects().resize(numStartingObjects);
-
-	//for (int i = 0; i < numStartingObjects; i++)
-	//{
-	//	float maxX = 120;
-	//	float posX = maxX * (std::rand() / (1.0f * RAND_MAX)) * pow(-1, i);
-
-	//	float maxZ = 500;
-	//	float posZ = maxZ * (std::rand() / (1.0f * RAND_MAX)) * pow(-1, i);
-
-	//	float posY = -15.0f;
-	//	DirectX::XMFLOAT3 position{ posX, posY, posZ };
-
-	//	float rotYRadians = std::rand();
-	//	DirectX::XMFLOAT3 rotation{ 0, rotYRadians, 0 };
-
-	//	/*std::cout << "Creating object at: (" << posX << ", " << posY << ", " << posZ << ")\n";
-	//	std::cout << "Rotation: (" << rotation.x << ", " << rotation.y << ", " << rotation.z << ")\n";*/
-	//	ModelInstance* oakTreeModelInstance = new ModelInstance(oakTreeModel, Transform(position, rotation));
-
-
-	//	/*Model* oakTreeModel2 = new Model(oakTreeModelBasePath, "OakTree2");
-	//	oakTreeModel2->SetWorldPosition(-40.0f, -15.0f, 55.0f);
-	//	oakTreeModel2->SetWorldRotationDegrees(-90, 0, 0);
-	//	m_models.push_back(oakTreeModel2);
-
-	//	Model* oakTreeModel3 = new Model(oakTreeModelBasePath, "OakTree3");
-	//	oakTreeModel3->SetWorldPosition(40.0f, -15.0f, 65.0f);
-	//	oakTreeModel3->SetWorldRotationDegrees(-90, 0, 0);
-	//	m_models.push_back(oakTreeModel3);*/
-
-	//	/*Model* cubeModel = new Model(cubeModelBasePath, "cube");
-	//	cubeModel->SetWorldPosition(0.0f, -10.0f, 50.0f);
-	//	cubeModel->SetWorldRotationDegrees(0, 0, 0);
-	//	cubeModel->SetWorldScale(1.5f);
-	//	m_models.push_back(cubeModel);*/
-
-
-	//	m_objects.push_back(oakTreeModelInstance);
-	//}
-
-
-	return true;
+	SSData.NumVisibleObjects.clear();
+	SSData.NumTrianglesSubmitted.resize(FramesToMeasureCount);
 }
 
 void Benchmarker::Report()
 {
-	std::cout << "\n----------- Loading Metrics --------------\n";
-	std::cout << "Init Duration: " << LoadingMetricsData.InitTime / 1000.0 << "s \n";
-	std::cout << "Time till first frame rendered: " << LoadingMetricsData.LoadTimeToFirstRenderedFrame / 1000.0 << "s \n";
+	//std::cout << "\n----------- Loading Metrics --------------\n";
+	//std::cout << "Init Duration: " << LoadingMetricsData.InitTime / 1000.0 << "s \n";
+	//std::cout << "Time till first frame rendered: " << LoadingMetricsData.LoadTimeToFirstRenderedFrame / 1000.0 << "s \n";
+	//std::cout << "Steady State Metrics\n";
 
-	std::cout << "\n----------- Steady State Metrics --------------\n";
 	CalculateSteadyStateMetrics();
-	std::cout << "Median Cpu Time: " << m_steadyStateCalculatedMetrics.MedianCpuFrameTime << "ms \n";
-	std::cout << "Min Cpu Time: " << m_steadyStateCalculatedMetrics.MinCpuFrameTime << "ms \n";
-	std::cout << "Max Cpu Time: " << m_steadyStateCalculatedMetrics.MaxCpuFrameTime << "ms \n";
-	std::cout << "Median GPU Time: " << m_steadyStateCalculatedMetrics.MedianGpuFrameTime << "ms \n";
-}
-
-bool Benchmarker::Shutdown()
-{
-	return true;
+	std::cout << "Median Draw Calls: " << SSCalculatedMetrics.MedianDrawCalls << "\n";
+	std::cout << "Median CPU Time: " << SSCalculatedMetrics.MedianCpuFrameTime << "ms \n";
+	std::cout << "P95 CPU Time: " << SSCalculatedMetrics.P95CpuFrameTime << "ms \n";
+	std::cout << "P99 CPU Time: " << SSCalculatedMetrics.P99CpuFrameTime << "ms \n";
+	std::cout << "Median GPU Time: " << SSCalculatedMetrics.MedianGpuFrameTime << "ms \n";
+	std::cout << "P95 GPU Time: " << SSCalculatedMetrics.P95GpuFrameTime << "ms \n";
+	std::cout << "P99 GPU Time: " << SSCalculatedMetrics.P99GpuFrameTime << "ms \n";
 }

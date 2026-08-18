@@ -1,7 +1,7 @@
 #pragma once
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-#include <nlohmann/json.hpp>
 
 namespace ModelGLTF
 {
@@ -89,14 +89,14 @@ namespace ModelGLTF
 	{
 		struct TextureInfo
 		{
-			int index{-1}; // The index of the texture in the list of textures
+			int index{ -1 }; // The index of the texture in the list of textures
 			int texCoord{}; // e.g. a value of 0 corresponds to TEXCOORD_0. A mesh primitive MUST have the corresponding texture coordinate attributes for the material to be applicable to it..
 
 			NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(TextureInfo, index, texCoord);
 		};
 
 		struct NormalTexture {
-			int index{-1}; // The index of the texture in the list of textures
+			int index{ -1 }; // The index of the texture in the list of textures
 			int texCoord{}; // e.g. a value of 0 corresponds to TEXCOORD_0. A mesh primitive MUST have the corresponding texture coordinate attributes for the material to be applicable to it..
 			float scale{ 1.0f }; // The scalar parameter applied to each normal vector of the normal texture. Scales the normal vector in X and Y directions using the formula: scaledNormal = normalize<sampled normal texture value> * 2.0 - 1.0) * vec3(<normal scale>, <normal scale>, 1.0.
 
@@ -104,7 +104,7 @@ namespace ModelGLTF
 		} normalTexture{};
 
 		struct OcclusionTexture {
-			int index{-1}; // The index of the texture in the list of textures
+			int index{ -1 }; // The index of the texture in the list of textures
 			int texCoord{}; // e.g. a value of 0 corresponds to TEXCOORD_0. A mesh primitive MUST have the corresponding texture coordinate attributes for the material to be applicable to it..
 			float strength{ 1.0f }; // A scalar parameter controlling the amount of occlusion applied. A value of 0.0 means no occlusion. A value of 1.0 means full occlusion. This value affects the final occlusion value as: 1.0 + strength * (<sampled occlusion texture value> - 1.0)
 
@@ -125,7 +125,8 @@ namespace ModelGLTF
 		TextureInfo emissiveTexture{}; // controls the color and intensity of the light being emitted by the material
 		std::vector<float> emissiveFactor{ 1.0f, 1.0f, 1.0f }; // This value defines linear multipliers for the sampled texels of the emissive texture.
 		std::string name{ "" };
-		AlphaMode alphaMode{ AlphaMode::Opaque };
+		std::string alphaMode{ "OPAQUE" };
+		//AlphaMode alphaModeEnum{ AlphaMode::Opaque };
 		float alphaCutoff{ 0.5f }; // Specifies the cutoff threshold when in MASK alpha mode. If the alpha value is greater than or equal to this value then it is rendered as fully opaque, otherwise, it is rendered as fully transparent. A value greater than 1.0 will render the entire material as fully transparent
 		bool doubleSided{}; //  When this value is false, back-face culling is enabled. When this value is true, back-face culling is disabled and double-sided lighting is enabled. The back-face MUST have its normals reversed before the lighting equation is evaluated.
 

@@ -57,7 +57,6 @@ AvgInstancesRendered
 | Model    | Num. Instances | Vertices | Triangles | Textures (Resolution) |
 | -------- | -------------- | -------- | --------- | --------------------- |
 | Oak Tree |                |          |           |                       |
-| Cube     |                |          |           |                       |
 |          |                |          |           |                       |
 | Total    |                |          |           |                       |
 

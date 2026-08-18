@@ -1,0 +1,11 @@
+Model Information:
+* title:	Dodecahedron
+* source:	https://sketchfab.com/3d-models/dodecahedron-fe85107a4491481f8b176f85df856365
+* author:	chandlerklebs (https://sketchfab.com/chandlerklebs)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Dodecahedron" (https://sketchfab.com/3d-models/dodecahedron-fe85107a4491481f8b176f85df856365) by chandlerklebs (https://sketchfab.com/chandlerklebs) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

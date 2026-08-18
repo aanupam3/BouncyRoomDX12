@@ -24,6 +24,13 @@ public:
 	void RemoveObject(ModelInstance& object);
 	void ClearScene();
 
+	enum SceneState
+	{
+		READY,
+		RUNNING,
+		RESETTING
+	} state{};
+
 	// Getters
 	Camera& GetCamera() { return m_camera; }
 	ModelInstance& GetObjectFromId(std::string id) {};

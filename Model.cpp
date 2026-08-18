@@ -15,6 +15,8 @@ Model::Model(std::string modelBasePath, std::string name) : m_modelBasePath(mode
 	ExtractDataFromGLTF();
 	SetMeshes();
 	SetNodes();
+
+	std::cout << m_meshes.size();
 }
 
 
@@ -76,9 +78,10 @@ void Model::ExtractDataFromGLTF()
 void Model::SetMeshes()
 {
 	int NumMeshes = static_cast<UINT>(m_modelJson->meshes.size());
+	m_meshes.resize(NumMeshes);
 	for (UINT meshIndex = 0; meshIndex < NumMeshes; meshIndex++)
 	{
-		Mesh mesh{};
+		Mesh& mesh = m_meshes[meshIndex];
 		mesh.Name = m_modelJson->meshes[meshIndex].name;
 
 		UINT numMeshPrimitives = m_modelJson->meshes[meshIndex].primitives.size();
@@ -86,8 +89,6 @@ void Model::SetMeshes()
 
 		SetMeshTextures(meshIndex, mesh);
 		SetMeshShaders(mesh);
-
-		m_meshes.emplace_back(mesh);
 	}
 }
 

@@ -1,6 +1,103 @@
 #include "Macros.h"
 #include "RenderingEngineD3D12.h"
 
+bool RenderingEngineD3D12::Init(Scene& scene)
+{
+	CHECK_FAIL(CreateFactory());
+	CHECK_FAIL(CreateDevice()); // needs factory
+	CHECK_FAIL(CreateCommandAllocators()); // needs m_device
+	CHECK_FAIL(CreateCommandQueue()); // needs m_device
+	CHECK_FAIL(CreateSwapChain()); // needs factory and m_device and command queue
+	CHECK_FAIL(CreateRTVAndDescriptorHeap()); // needs m_device and swapchain
+	CHECK_FAIL(CreateDepthStencilBuffer()); // needs m_device
+	CHECK_FAIL(CreateCommandList()); // needs m_device and command allocator
+	CHECK_FAIL(CreateFences()); // needs m_device
+
+	//CHECK_FAIL(CompileShaders());
+	CreateViewport();
+
+	m_commandList->Reset(m_commandAllocators[m_currentFrameIndex].Get(), nullptr);
+
+	if (m_benchmarker)
+	{
+		D3D12_QUERY_HEAP_DESC timestampQueryHeapDesc{};
+		timestampQueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+		timestampQueryHeapDesc.Count = 2;
+		HRESULT hr = m_device->CreateQueryHeap(&timestampQueryHeapDesc, IID_PPV_ARGS(m_benchmarker->TimestampQueryHeap.GetAddressOf()));
+		PROMPTFAILHR(hr, "Failed to create timestamp query heap. ");
+
+		m_commandQueue->GetTimestampFrequency(&m_benchmarker->GpuTimestampFrequency);
+		std::cout << "GPU Frequency: " << m_benchmarker->GpuTimestampFrequency << "\n";
+
+		D3D12_HEAP_PROPERTIES timestampDataResourceHeapProperties{ D3D12_HEAP_TYPE_READBACK };
+		D3D12_RESOURCE_DESC timestampDataResourceDesc{};
+		timestampDataResourceDesc.Alignment = 0;
+		timestampDataResourceDesc.DepthOrArraySize = 1;
+		timestampDataResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		timestampDataResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		timestampDataResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		timestampDataResourceDesc.Height = 1;
+		timestampDataResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		timestampDataResourceDesc.MipLevels = 1;
+		timestampDataResourceDesc.SampleDesc = { 1, 0 };
+		timestampDataResourceDesc.Width = 2 * sizeof(UINT64);
+		m_device->CreateCommittedResource(
+			&timestampDataResourceHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&timestampDataResourceDesc,
+			D3D12_RESOURCE_STATE_COMMON,
+			nullptr,
+			IID_PPV_ARGS(&m_benchmarker->TimestampDataResource)
+		);
+	}
+
+	// Uploading all resources for base models. These are shared by each object of a given model
+	std::vector<Model>& models = scene.GetModels();
+	for (Model& model : models)
+	{
+		const ModelBinData* modelBinData = model.GetBinData();
+		CHECK_FAIL(CreateBufferResource(model.ModelBinResource, modelBinData->binDataSize));
+		CHECK_FAIL(UploadBuffer(model.ModelBinResource.Get(), modelBinData->binData, modelBinData->binDataSize));
+
+		std::vector<Mesh>& modelMeshes = model.GetMeshes();
+
+		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
+		{
+			Mesh& mesh = modelMeshes[meshIndex];
+
+			std::cout << "Setting up GPU resources for model " << model.Name << " mesh: " << mesh.Name << "\n";
+
+			// These need the model binary's address so that the buffer view's location can be assigned
+			// that's why we set them here instead of in the Model constructor
+			model.SetMeshVertexBufferViews(meshIndex);
+			model.SetMeshIndexBufferView(meshIndex);
+
+			for (int i = 0; i < mesh.Primitives.size(); i++)
+			{
+				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
+				std::vector<Texture>& meshPrimitiveTextures = meshPrimitive.Textures;
+				for (Texture& texture : meshPrimitiveTextures)
+				{
+					CHECK_FAIL(CreateTextureResource(texture));
+					CHECK_FAIL(UploadTexture(texture));
+				}
+			}
+		}
+	}
+
+	m_commandList->Close();
+	ID3D12CommandList* commandLists[]{ m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+
+	m_fenceValuesCPU[m_currentFrameIndex]++;
+	HRESULT hr2 = m_commandQueue->Signal(m_fencesGPU[m_currentFrameIndex].Get(), m_fenceValuesCPU[m_currentFrameIndex]);
+	PROMPTFAILHR(hr2, "Failed to signal fence with error ");
+
+	std::cout << "\n========== Engine Initialized ==============\n";
+
+	return true;
+}
+
 bool RenderingEngineD3D12::CreateFactory()
 {
 	HRESULT hr;
@@ -19,9 +116,10 @@ bool RenderingEngineD3D12::CreateDevice()
 
 #ifdef _DEBUG
 	ComPtr<ID3D12Debug> debugController;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(debugController.GetAddressOf()))))
 	{
 		debugController->EnableDebugLayer();
+		std::cout << "Debug Controller active\n";
 	}
 #endif
 
@@ -266,8 +364,6 @@ bool RenderingEngineD3D12::CreateFences()
 		return false;
 	}
 
-	std::cout << "Created Fence Event\n";
-
 	return true;
 }
 
@@ -290,7 +386,8 @@ void RenderingEngineD3D12::CreateViewport()
 
 bool RenderingEngineD3D12::CreateRootSignature(const MeshPrimitive& meshPrimitive)
 {
-	D3D12_ROOT_PARAMETER rootParams[2]{};
+	std::vector<D3D12_ROOT_PARAMETER> rootParams{};
+	//rootParams.reserve(2);
 
 	D3D12_DESCRIPTOR_RANGE rootWVPMatricesDescRange{};
 	rootWVPMatricesDescRange.BaseShaderRegister = 0; //b0
@@ -302,33 +399,33 @@ bool RenderingEngineD3D12::CreateRootSignature(const MeshPrimitive& meshPrimitiv
 	rootWVPMatricesDescTable.NumDescriptorRanges = 1;
 	rootWVPMatricesDescTable.pDescriptorRanges = &rootWVPMatricesDescRange;
 
-	rootParams[0].DescriptorTable = rootWVPMatricesDescTable;
-	rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	D3D12_ROOT_PARAMETER rootParamWVP{};
+	rootParamWVP.DescriptorTable = rootWVPMatricesDescTable;
+	rootParamWVP.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParamWVP.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParams.push_back(rootParamWVP);
 
 	// ------------- texture srv -----------------------------------------------------------
-	D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
-	rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
-	rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size());
-	rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-	rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	if (meshPrimitive.Textures.size() > 0)
+	{
+		D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
+		rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
+		rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size());
+		rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 
-	D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
-	rootTexSrvDescriptorTable.NumDescriptorRanges = 1;
-	rootTexSrvDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
+		D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
+		rootTexSrvDescriptorTable.NumDescriptorRanges = 1;
+		rootTexSrvDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
 
-	rootParams[1].DescriptorTable = rootTexSrvDescriptorTable;
-	rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		D3D12_ROOT_PARAMETER rootParamTextures{};
+		rootParamTextures.DescriptorTable = rootTexSrvDescriptorTable;
+		rootParamTextures.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParamTextures.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		rootParams.push_back(rootParamTextures);
+	}
 
-	// ----- sampler --------------------------------------------------------------------
-	D3D12_STATIC_SAMPLER_DESC textureSampler{};
-	textureSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-	textureSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	textureSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	textureSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	textureSampler.ShaderRegister = 0; //s0
-	textureSampler.RegisterSpace = 0;
+	D3D12_STATIC_SAMPLER_DESC textureSampler{}; // needs to be accessible rootSignatureDesc so has to be in the same scope as it
 
 	//D3D12_DESCRIPTOR_RANGE rootTextSamplerDescriptorRange{};
 	//rootTextSamplerDescriptorRange.BaseShaderRegister = 0; //t0
@@ -345,21 +442,34 @@ bool RenderingEngineD3D12::CreateRootSignature(const MeshPrimitive& meshPrimitiv
 	rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;*/
 
 	// ----------------- root signature definition ------------------------------------------
-	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.NumParameters = 2;
-	rootSignatureDesc.pParameters = rootParams;
-	rootSignatureDesc.NumStaticSamplers = 1;
-	rootSignatureDesc.pStaticSamplers = &textureSampler;
+	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rootSignatureDesc.NumParameters = rootParams.size();
+	rootSignatureDesc.pParameters = rootParams.data();
 
-	ID3DBlob* signature;
-	ID3DBlob* errorBlob;
-	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &errorBlob);
+	if (meshPrimitive.Textures.size() > 0)
+	{
+		textureSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+		textureSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		textureSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		textureSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		textureSampler.ShaderRegister = 0; //s0
+		textureSampler.RegisterSpace = 0;
+		rootSignatureDesc.NumStaticSamplers = 1;
+		rootSignatureDesc.pStaticSamplers = &textureSampler;
+	}
+
+	ComPtr<ID3DBlob> signature{};
+	ComPtr<ID3DBlob> errorBlob{};
+	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.GetAddressOf(), errorBlob.GetAddressOf());
 
 	if (FAILED(hr))
 	{
-		const char* errorMsg = (const char*)errorBlob->GetBufferPointer();
-		MessageBoxA(0, errorMsg, "Error", MB_OK);
+		if (errorBlob)
+		{
+			const char* errorMsg = (const char*)errorBlob->GetBufferPointer();
+			MessageBoxA(0, errorMsg, "Error", MB_OK);
+		}
 	}
 	PROMPTFAILHR(hr, "Failed to assign root signature blob! ");
 
@@ -468,9 +578,10 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	hr = m_commandList->Reset(m_commandAllocators[m_currentFrameIndex].Get(), m_pipelineStateObject.Get());
 	PROMPTFAILHR(hr, "Failed to reset command LIST");
 
-#if BENCHMARK 1
-	m_commandList->EndQuery(g_benchmarker.TimestampQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 0);
-#endif
+	if (m_benchmarker)
+	{
+		m_commandList->EndQuery(m_benchmarker->TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0);
+	}
 
 	// change from present state to render target state for recording
 	D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -540,10 +651,18 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps[i]->GetGPUDescriptorHandleForHeapStart();
 				m_commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
 
-				descriptorHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-				m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
+				if (meshPrimitive.Textures.size() > 0)
+				{
+					descriptorHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+					m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
+				}
 
 				m_commandList->DrawIndexedInstanced(meshPrimitive.NumIndices, 1, 0, 0, 0);
+
+				if (m_benchmarker)
+				{
+					m_benchmarker->SSData.NumDrawCalls[m_benchmarker->CurrentMeasurementFrameNumber]++;
+				}
 			}
 		}
 	}
@@ -556,27 +675,28 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	);
 	m_commandList->ResourceBarrier(1, &barrier2);
 
-#if BENCHMARK 1
-	m_commandList->EndQuery(g_benchmarker.TimestampQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 1);
+	if (m_benchmarker)
+	{
+		m_commandList->EndQuery(m_benchmarker->TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 1);
 
-	D3D12_RESOURCE_BARRIER queryBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		g_benchmarker.TimestampDataResource,
-		D3D12_RESOURCE_STATE_COMMON,
-		D3D12_RESOURCE_STATE_COPY_DEST
-	);
-	m_commandList->ResourceBarrier(1, &queryBarrier);
+		D3D12_RESOURCE_BARRIER queryBarrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_benchmarker->TimestampDataResource.Get(),
+			D3D12_RESOURCE_STATE_COMMON,
+			D3D12_RESOURCE_STATE_COPY_DEST
+		);
+		m_commandList->ResourceBarrier(1, &queryBarrier);
 
-	m_commandList->ResolveQueryData(g_benchmarker.TimestampQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 0, 2, g_benchmarker.TimestampDataResource, 0);
+		m_commandList->ResolveQueryData(m_benchmarker->TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, 2, m_benchmarker->TimestampDataResource.Get(), 0);
 
-	void* mapped = nullptr;
-	D3D12_RANGE timestampRangeBegin{ 0,2 * sizeof(UINT64) };
-	g_benchmarker.TimestampDataResource->Map(0, &timestampRangeBegin, &mapped);
+		void* mapped = nullptr;
+		D3D12_RANGE timestampRangeBegin{ 0,2 * sizeof(UINT64) };
+		m_benchmarker->TimestampDataResource->Map(0, &timestampRangeBegin, &mapped);
 
-	UINT64* mappedValues = (UINT64*)mapped;
-	double gpuTimeFrame = 1000.0 * (mappedValues[1] - mappedValues[0]) / (double)g_benchmarker.GpuTimestampFrequency;
-	g_benchmarker.SSData.GpuFrameTimes[CurrentMeasurementFrameNumber] = gpuTimeFrame;
+		UINT64* mappedValues = (UINT64*)mapped;
+		double gpuTimeFrame = 1000.0 * (mappedValues[1] - mappedValues[0]) / (double)m_benchmarker->GpuTimestampFrequency;
+		m_benchmarker->SSData.GpuFrameTimes[m_benchmarker->CurrentMeasurementFrameNumber] = gpuTimeFrame;
 
-#endif
+	}
 	hr = m_commandList->Close();
 
 	return true;
@@ -584,6 +704,21 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 
 bool RenderingEngineD3D12::Render(Scene& scene)
 {
+	if (scene.state == Scene::RESETTING)
+	{
+		WaitForPreviousFrame();
+		for (int i = 0; i < kFrameBufferCount; i++)
+		{
+			const UINT64 value = ++m_fenceValuesCPU[i];
+			m_commandQueue->Signal(m_fencesGPU[i].Get(), value);
+			m_fencesGPU[i]->SetEventOnCompletion(value, m_fenceEvent);
+			WaitForSingleObject(m_fenceEvent, INFINITE);
+		}
+
+		scene.state = Scene::READY;
+		return true;
+	}
+
 	std::vector<ModelInstance>& objects = scene.GetObjects();
 	for (ModelInstance& object : objects)
 	{
@@ -591,8 +726,15 @@ bool RenderingEngineD3D12::Render(Scene& scene)
 
 		for (UINT nodeIndex = 0; nodeIndex < objectNodes.size(); nodeIndex++)
 		{
-			WorldNode nodeWithMesh = objectNodes[nodeIndex];
+			WorldNode& nodeWithMesh = objectNodes[nodeIndex];
 			if (nodeWithMesh.MeshIndex == -1) { continue; }
+
+			if (nodeWithMesh.WVPMatrixGPUResource.Get() == NULL)
+			{
+				// Aligning buffer to 256 bytes as it is refrenced by a CBV
+				CHECK_FAIL(CreateBufferResource(nodeWithMesh.WVPMatrixGPUResource, ~255 & (255 + nodeWithMesh.WVPMatrixVector.size() * sizeof(float))));
+				CHECK_FAIL(SetShaderVisibleDescriptors(object, nodeWithMesh));
+			}
 
 			CHECK_FAIL(UploadBuffer(nodeWithMesh.WVPMatrixGPUResource.Get(), reinterpret_cast<byte*>(nodeWithMesh.WVPMatrixVector.data()), nodeWithMesh.WVPMatrixVector.size() * sizeof(float)));
 		}
@@ -620,15 +762,14 @@ bool RenderingEngineD3D12::Render(Scene& scene)
 	const std::string msg = "Failed to present backbuffer at index " + std::to_string(m_currentFrameIndex);
 	PROMPTFAILHR(hr, msg.c_str());
 
-#if BENCHMARK
-
-	if (g_benchmarker.IsFirstRender)
+	/*if (m_benchmarker)
 	{
-		Benchmarker::StopTime(g_benchmarker.LoadingMetricsData.LoadTimeToFirstRenderedFrame);
-		g_benchmarker.IsFirstRender = false;
-	}
-
-#endif
+		if (m_benchmarker->IsFirstRender)
+		{
+			Benchmarker::StopTime(m_benchmarker->LoadingMetricsData.LoadTimeToFirstRenderedFrame);
+			m_benchmarker->IsFirstRender = false;
+		}
+	}*/
 
 	return true;
 }
@@ -679,7 +820,7 @@ bool RenderingEngineD3D12::CreateTextureResource(Texture& texture)
 		&textureDefaultResourceDesc,
 		D3D12_RESOURCE_STATE_COMMON,
 		nullptr,
-		IID_PPV_ARGS(&texture.GPUResource));
+		IID_PPV_ARGS(texture.GPUResource.GetAddressOf()));
 
 	PROMPTFAILHR(hr, "Failed to create committed resource for texture " + texture.Name + " default heap");
 
@@ -723,7 +864,7 @@ bool RenderingEngineD3D12::CreateBufferResource(ComPtr<ID3D12Resource>& bufferRe
 }
 
 // Assumes n*256-byte aligned rows in a texture
-bool RenderingEngineD3D12::UploadTexture(const Texture& texture, bool useWriteToSubResource = true)
+bool RenderingEngineD3D12::UploadTexture(Texture& texture, bool useWriteToSubResource)
 {
 	HRESULT hr;
 
@@ -801,7 +942,7 @@ bool RenderingEngineD3D12::SetShaderVisibleDescriptors(ModelInstance& object, Wo
 				descriptorNumber, descriptorSize);
 
 			m_device->CreateShaderResourceView(
-				texture.GPUResource,
+				texture.GPUResource.Get(),
 				&textureSrvDesc,
 				textureSRVHandle
 			);
@@ -810,135 +951,17 @@ bool RenderingEngineD3D12::SetShaderVisibleDescriptors(ModelInstance& object, Wo
 	return true;
 }
 
-bool RenderingEngineD3D12::Init(Scene& scene)
+RenderingEngineD3D12::RenderingEngineD3D12(RenderWindow& renderWindow, std::shared_ptr<Benchmarker> benchmarker, GraphicsAPI graphicsAPI)
+	: m_renderWindow(renderWindow), m_benchmarker(benchmarker), m_graphicsAPI(graphicsAPI)
 {
-	CHECK_FAIL(CreateFactory());
-	CHECK_FAIL(CreateDevice()); // needs factory
-	CHECK_FAIL(CreateCommandAllocators()); // needs m_device
-	CHECK_FAIL(CreateCommandQueue()); // needs m_device
-	CHECK_FAIL(CreateSwapChain()); // needs factory and m_device and command queue
-	CHECK_FAIL(CreateRTVAndDescriptorHeap()); // needs m_device and swapchain
-	CHECK_FAIL(CreateDepthStencilBuffer()); // needs m_device
-	CHECK_FAIL(CreateCommandList()); // needs m_device and command allocator
-	CHECK_FAIL(CreateFences()); // needs m_device
-
-	//CHECK_FAIL(CompileShaders());
-	CreateViewport();
-
-	m_commandList->Reset(m_commandAllocators[m_currentFrameIndex].Get(), nullptr);
-
-#if BENCHMARK 1
-	D3D12_QUERY_HEAP_DESC timestampQueryHeapDesc{};
-	timestampQueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-	timestampQueryHeapDesc.Count = 2;
-	HRESULT hr = m_device->CreateQueryHeap(&timestampQueryHeapDesc, IID_PPV_ARGS(benchmarker.TimestampQueryHeap));
-	PROMPTFAILHR(hr, "Failed to create timestamp query heap. ");
-
-	m_commandQueue->GetTimestampFrequency(&g_benchmarker.GpuTimestampFrequency);
-	std::cout << "GPU Frequency: " << g_benchmarker.GpuTimestampFrequency << "\n";
-
-	D3D12_HEAP_PROPERTIES timestampDataResourceHeapProperties{ D3D12_HEAP_TYPE_READBACK };
-	D3D12_RESOURCE_DESC timestampDataResourceDesc{};
-	timestampDataResourceDesc.Alignment = 0;
-	timestampDataResourceDesc.DepthOrArraySize = 1;
-	timestampDataResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	timestampDataResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	timestampDataResourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-	timestampDataResourceDesc.Height = 1;
-	timestampDataResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	timestampDataResourceDesc.MipLevels = 1;
-	timestampDataResourceDesc.SampleDesc = { 1, 0 };
-	timestampDataResourceDesc.Width = 2 * sizeof(UINT64);
-	m_device->CreateCommittedResource(
-		&timestampDataResourceHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&timestampDataResourceDesc,
-		D3D12_RESOURCE_STATE_COMMON,
-		nullptr,
-		IID_PPV_ARGS(&g_benchmarker.TimestampDataResource)
-	);
-#endif
-
-	// Uploading all resources for base models. These are shared by each object of a given model
-	std::vector<Model>& models = scene.GetModels();
-	for (Model& model : models)
-	{
-		const ModelBinData* modelBinData = model.GetBinData();
-		CHECK_FAIL(CreateBufferResource(model.ModelBinResource, modelBinData->binDataSize));
-		CHECK_FAIL(UploadBuffer(model.ModelBinResource.Get(), modelBinData->binData, modelBinData->binDataSize));
-
-		std::vector<Mesh>& modelMeshes = model.GetMeshes();
-
-		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
-		{
-			Mesh& mesh = modelMeshes[meshIndex];
-
-			std::cout << "Setting up GPU resources for model " << model.Name << " mesh: " << mesh.Name << "\n";
-
-			// These need the model binary's address so that the buffer view's location can be assigned
-			// that's why we set them here instead of in the Model constructor
-			model.SetMeshVertexBufferViews(meshIndex);
-			model.SetMeshIndexBufferView(meshIndex);
-
-			for (int i = 0; i < mesh.Primitives.size(); i++)
-			{
-				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
-				std::vector<Texture>& meshPrimitiveTextures = meshPrimitive.Textures;
-				for (Texture& texture : meshPrimitiveTextures)
-				{
-					CHECK_FAIL(CreateTextureResource(texture));
-					CHECK_FAIL(UploadTexture(texture));
-				}
-			}
-		}
-	}
-
-	std::vector<ModelInstance>& objects = scene.GetObjects();
-	for (ModelInstance& object : objects)
-	{
-		std::vector<WorldNode>& instanceNodes = object.GetNodes();
-		int numNodes = instanceNodes.size();
-		for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
-		{
-			WorldNode& node = instanceNodes[nodeIndex];
-
-			if (node.MeshIndex == -1) { continue; } // don't bother creating resources for nodes without meshes
-
-			//node.WVPMatrixVector = Utils::xmMatrixToVector(DirectX::XMMatrixMultiply(node.NodeTransform.GetTransformationMatrix(), vpMatrix));
-			//Utils::printMatrix(meshNode.WorldSpaceTransformMatrix, "World Space Transform matrix");
-			//Utils::printMatrix(meshNode.WVPMatrix, "WVP matrix");
-
-			// Aligning buffer to 256 bytes as it is refrenced by a CBV
-			CHECK_FAIL(CreateBufferResource(node.WVPMatrixGPUResource, ~255 & (255 + node.WVPMatrixVector.size() * sizeof(float))));
-			//CHECK_FAIL(UploadBuffer(node.WVPMatrixGPUResource, reinterpret_cast<byte*>(node.WVPMatrixVector.data()), node.WVPMatrixVector.size() * sizeof(float)));
-			CHECK_FAIL(SetShaderVisibleDescriptors(object, node));
-		}
-
-	}
-
-	m_commandList->Close();
-	ID3D12CommandList* commandLists[]{ m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
-
-	m_fenceValuesCPU[m_currentFrameIndex]++;
-	HRESULT hr2 = m_commandQueue->Signal(m_fencesGPU[m_currentFrameIndex].Get(), m_fenceValuesCPU[m_currentFrameIndex]);
-	PROMPTFAILHR(hr2, "Failed to signal fence with error ");
-
-	return true;
 }
+
 
 bool RenderingEngineD3D12::Shutdown()
 {
 	HRESULT hr;
 
 	WaitForPreviousFrame();
-
-	// close the fence event
-	CloseHandle(m_fenceEvent);
-
-	// clean up everything
-	Shutdown();
-
 
 	for (int i = 0; i < kFrameBufferCount; i++)
 	{
@@ -948,24 +971,27 @@ bool RenderingEngineD3D12::Shutdown()
 		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
 
+	// close the fence event
+	CloseHandle(m_fenceEvent);
+
 	m_commandList->Close();
 
-	ID3D12CommandList* lists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(1, lists);
+	//ID3D12CommandList* lists[] = { m_commandList.Get() };
+	//m_commandQueue->ExecuteCommandLists(1, lists);
 
-	m_fenceValuesCPU[m_currentFrameIndex]++;
-	hr = m_commandQueue->Signal(m_fencesGPU[m_currentFrameIndex].Get(), m_fenceValuesCPU[m_currentFrameIndex]);
-	PROMPTFAILHR(hr, "Failed to signal fence with error ");
+	//m_fenceValuesCPU[m_currentFrameIndex]++;
+	//hr = m_commandQueue->Signal(m_fencesGPU[m_currentFrameIndex].Get(), m_fenceValuesCPU[m_currentFrameIndex]);
+	//PROMPTFAILHR(hr, "Failed to signal fence with error ");
 
-	for (int i = 0; i < kFrameBufferCount; i++)
-	{
-		m_commandList->Reset(m_commandAllocators[i].Get(), nullptr);
-	}
+	//for (int i = 0; i < kFrameBufferCount; i++)
+	//{
+	//	m_commandList->Reset(m_commandAllocators[i].Get(), nullptr);
+	//}
 
-	if (m_commandList)
-	{
-		m_commandList->ClearState(nullptr);
-	}
+	//if (m_commandList)
+	//{
+	//	m_commandList->ClearState(nullptr);
+	//}
 	// The command list should no longer retain recorded state.
 
 	// Delete application-owned objects while the m_device still exists.

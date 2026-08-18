@@ -42,6 +42,6 @@ void Scene::RemoveObject(ModelInstance& object)
 
 void Scene::ClearScene()
 {
-	m_models.clear();
 	m_objects.clear();
+	m_models.clear();
 }

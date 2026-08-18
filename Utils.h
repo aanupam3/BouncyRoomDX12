@@ -17,19 +17,6 @@ namespace Utils
 			.count();
 	}
 
-	template<typename StructType, typename T>
-	static std::vector<T> ExtractFromStructList(const std::vector<StructType> structList, T StructType::* field)
-	{
-		std::vector<T> fieldList{};
-		fieldList.reserve(structList.size());
-
-		for (const StructType& structElement : structList)
-		{
-			fieldList.push_back(structElement.*field);
-		}
-		return fieldList;
-	}
-
 	static void LoadBinaryData(const std::string& binarySrcPath, byte*& dst, size_t& binSize)
 	{
 		std::ifstream binFile{ binarySrcPath, std::ios::binary | std::ios::ate };

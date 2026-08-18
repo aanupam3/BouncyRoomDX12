@@ -16,6 +16,9 @@
     <Filter Include="Interfaces">
       <UniqueIdentifier>{997ea301-f152-49df-a4c5-a92b4fc7811d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{9691db9c-bc8c-4493-9c7d-35966b9d555e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="d3dx12.h">
@@ -69,6 +72,9 @@
     <ClInclude Include="DefaultApplication.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BenchmarkingApplication.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -101,6 +107,9 @@
     <ClCompile Include="DefaultApplication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BenchmarkingApplication.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl">
@@ -115,12 +124,102 @@
     <FxCompile Include="PixelShader_Texture.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="models\cube\shaders\Object_0\Object_0_PixelShader.hlsl" />
-    <FxCompile Include="models\cube\shaders\Object_0\Object_0_VertexShader.hlsl" />
-    <FxCompile Include="models\OakTree\shaders\Canopy_leaf_0\Canopy_leaf_0_PixelShader.hlsl" />
-    <FxCompile Include="models\OakTree\shaders\Canopy_leaf_0\Canopy_leaf_0_VertexShader.hlsl" />
-    <FxCompile Include="models\OakTree\shaders\Trunk_Trunk_0\Trunk_Trunk_0_PixelShader.hlsl" />
-    <FxCompile Include="models\OakTree\shaders\Trunk_Trunk_0\Trunk_Trunk_0_VertexShader.hlsl" />
+    <FxCompile Include="models\simple_room\shaders\bottom_Material.004_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\bottom_Material.004_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\OakTree\shaders\Canopy_leaf_0\Canopy_leaf_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\OakTree\shaders\Canopy_leaf_0\Canopy_leaf_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\ceilling_Material.006_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\ceilling_Material.006_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\tennis_ball\shaders\defaultMaterial\defaultMaterial_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\tennis_ball\shaders\defaultMaterial\defaultMaterial_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Door.001_Door_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Door.001_Door_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\door_Door_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\door_Door_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\DoorFrame.001_Door_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\DoorFrame.001_Door_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\floor_Material.005_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\floor_Material.005_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\gray_Material.007_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\gray_Material.007_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front.001_Handle_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front.001_Handle_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front.002_Handle_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front.002_Handle_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front.003_Handle_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front.003_Handle_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front_Handle_material_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\Handle_Front_Handle_material_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\light_Material.002_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\simple_room\shaders\light_Material.002_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\cube\shaders\Object_0\Object_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\cube\shaders\Object_0\Object_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\OakTree\shaders\Trunk_Trunk_0\Trunk_Trunk_0_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="models\OakTree\shaders\Trunk_Trunk_0\Trunk_Trunk_0_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

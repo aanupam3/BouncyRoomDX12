@@ -10,6 +10,5 @@ class DefaultApplication : public IApplication
 
 private:
 	float m_cameraRevolutionTheta = 0.0f;
-	const float m_radiansPerSec = -0.001f;
 };
 

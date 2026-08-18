@@ -1,3 +1,4 @@
+#include "Benchmarker.h"
 #include "ISimulationEngine.h"
 #include "Scene.h"
 
@@ -5,7 +6,7 @@
 class SimulationEngine : public ISimulationEngine
 {
 public:
-	SimulationEngine();
+	SimulationEngine(std::shared_ptr<Benchmarker> benchmarker = nullptr);
 	~SimulationEngine();
 
 	bool Init(Scene&) override;
@@ -13,7 +14,7 @@ public:
 	bool Shutdown() override;
 
 private:
-
+	std::shared_ptr<Benchmarker> m_benchmarker;
 
 };
 

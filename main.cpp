@@ -1,13 +1,9 @@
-#include "Benchmarker.h"
+#include "BenchmarkingApplication.h"
 #include "DefaultApplication.h"
 #include "Macros.h"
 #include "ModelInstance.h"
 #include "RenderingEngineD3D12.h"
 #include "SimulationEngine.h"
-
-// Handle to the window
-#define STABILIZATION_FRAME_COUNT 300
-#define MEASUREMENT_FRAME_COUNT 2000
 
 bool g_running = false;
 
@@ -134,20 +130,36 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	std::vector<std::wstring> arguments(argc);
 	for (int i = 0; i < argc; ++i) { arguments[i] = argv[i]; }
 
-	bool isBenchmarking = (arguments[0].c_str() == L"benchmark");
+	bool isBenchmarking = (arguments[0] == L"--benchmark");
 	LocalFree(argv);
 	// ----------------------------------------------------------------------------------------------------------
 	// Initialization -----------------------------------------------------------------------------------------
 	HWND hwnd = NULL;
 	RenderWindow renderWindow{ L"BouncyRoomDX12", L"Bounce Room Direct3D12", 1920, 1080, false, hwnd };
 	std::unique_ptr<IApplication> application;
-	if (isBenchmarking)
-		application = std::make_unique<Benchmarker>(STABILIZATION_FRAME_COUNT, MEASUREMENT_FRAME_COUNT);
-	else
-		application = std::make_unique<DefaultApplication>();
+	std::unique_ptr<ISimulationEngine> simulationEngine;
+	std::unique_ptr<IRenderingEngine> renderingEngine;
+	std::shared_ptr<Benchmarker> benchmarker;
 
-	std::unique_ptr<ISimulationEngine> simulationEngine = std::make_unique<SimulationEngine>();
-	std::unique_ptr<IRenderingEngine> renderingEngine = std::make_unique<RenderingEngineD3D12>(renderWindow);
+	if (isBenchmarking)
+	{
+		constexpr int stabilizationFrameCount = 300;
+		constexpr int measurementFrameCount = 300;
+
+		std::cout << "----------------- BENCHMARKING ENABLED ------------------------";
+		benchmarker = std::make_shared<Benchmarker>(stabilizationFrameCount, measurementFrameCount);
+		application = std::make_unique<BenchmarkingApplication>(benchmarker);
+		simulationEngine = std::make_unique<SimulationEngine>(benchmarker);
+		renderingEngine = std::make_unique<RenderingEngineD3D12>(renderWindow, benchmarker);
+	}
+	else
+	{
+		std::cout << "----------------- BENCHMARKING DISABLED ------------------------";
+		application = std::make_unique<DefaultApplication>();
+		simulationEngine = std::make_unique<SimulationEngine>();
+		renderingEngine = std::make_unique<RenderingEngineD3D12>(renderWindow);
+	}
+
 
 	Scene mainScene{ renderWindow };
 
@@ -204,19 +216,22 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 			DispatchMessage(&msg);
 		}
 		else {
-			BREAK_IF_FAIL(application->Update(mainScene), "Application Update() Failed! Shuttind down...");
-			BREAK_IF_FAIL(simulationEngine->Update(mainScene), "SimulationEngine Update() Failed! Shuttind down...");
-			BREAK_IF_FAIL(renderingEngine->Render(mainScene), "RenderingEngine Render() Failed! Shuttind down...");
+			BREAK_IF_FAIL(application->Update(mainScene), "\nApplication triggered shutdown...");
+			BREAK_IF_FAIL(simulationEngine->Update(mainScene), "\nSimulationEngine triggered shutdown...");
+			BREAK_IF_FAIL(renderingEngine->Render(mainScene), "\nRenderingEngine triggered shutdown...");
 		}
 	}
 
-	application->Shutdown();
-	simulationEngine->Shutdown();
 	renderingEngine->Shutdown();
-	mainScene.ClearScene();
+	simulationEngine->Shutdown();
+	application->Shutdown();
+	//mainScene.ClearScene();
 
 	std::cout << "\nPress Enter to exit...";
 	std::cin.get();
+	std::cin.get();
+
+	std::cout << "\nShutting Down...";
 
 	return 0;
 }
