@@ -1,19 +1,25 @@
 # BouncyRoomDX12
-A low-level graphics + physics engine project with the goal of increasing the max number of bouncy objects in a room, while maintaining 60fps at stable state.
-
-See [Hardware](#Hardware) and [Scene](#Scene) sections below for current setup.
-# Recent Performance
-## Latest Commit
-- **Max Balls Rendered at 60 FPS**: 215
-- **Bottleneck**: CPU bound
-- **Memory**: Severe memory use ( > 8 GB) due to lack of instancing
+A low-level graphics + physics engine project with the goal of increasing the max number of bouncy objects in a room, while maintaining 60fps at stable state. See [Hardware](#Hardware) and [Scene](#Scene) sections below for current setup.
 
 ### Video/Screenshots
 Note that balls are currently stationary as a baseline  
 ![GIF](docs/images/BouncyRoomRecording.gif)  
 Video link: [Video](docs/videos/BouncyRoomRecording.mp4)
 
-## Previous Commit
+### Usage: 
+Ideally you should build the .sln. But you can try running the binary (BouncyRoomDX12.exe) directly, although that may not work.  
+Once loaded you should see the terminal and a separate render window. The terminal will ask you how many balls to render.  
+![Usage](docs/images/Usage.png)
+
+
+# Recent Performance
+
+### Latest Commit
+- **Max Balls Rendered at 60 FPS**: 215
+- **Bottleneck**: CPU bound
+- **Memory**: Severe memory use ( > 8 GB) due to lack of instancing
+
+### Previous Commit
 N/A
 
 # Current Metrics when Rendering Max Balls at 60fps
