@@ -6,8 +6,10 @@ See [Hardware](#Hardware) and [Scene](#Scene) sections below for current setup.
 ## Latest Commit
 - **Max Balls Rendered at 60 FPS**: 215
 - **Bottleneck**: CPU bound
+- **Memory**: Severe memory use ( > 8 GB) due to lack of instancing
 
 ### Video/Screenshots
+Note that balls are currently stationary as a baseline  
 ![GIF](docs/images/BouncyRoomRecording.gif)  
 Video link: [Video](docs/videos/BouncyRoomRecording.mp4)
 
@@ -24,6 +26,7 @@ N/A
 - Median GPU Time: 7.47609ms
 - P95 GPU Time: 9.17375ms
 - P99 GPU Time: 9.29047ms
+- Memory (RAM): > 8 GB
 
 # Scene
 - **Resolution**: 1920 x 1080
