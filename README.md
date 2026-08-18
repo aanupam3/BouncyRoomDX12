@@ -8,7 +8,8 @@ See [Hardware](#Hardware) and [Scene](#Scene) sections below for current setup.
 - **Bottleneck**: CPU bound
 
 ### Video/Screenshots
-[Video](docs/videos/BouncyRoomRecording.mp4)
+![GIF](docs/images/BouncyRoomRecording.gif)  
+Video link: [Video](docs/videos/BouncyRoomRecording.mp4)
 
 ## Previous Commit
 N/A
