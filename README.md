@@ -149,12 +149,6 @@ Add more metrics:
 	- e.g., [BENCHMARKER] Added Measuring 1% GPU Frame time: 250
 - [DOCUMENTATION] {readme updates, comments etc}
 - [CLEANUP] {refactors to improve modularity/scalability, removing unused code/comments}
-### Format for Commit Description for all commits
-{Details on commit syntax}
-
-CPU Median: {x} ms
-GPU Median: {y} ms
-Bottleneck: CPU/GPU/Mixed
 
 # History (latest to oldest)
 (See commit history)
