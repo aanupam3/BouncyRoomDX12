@@ -1,38 +1,38 @@
 # BouncyRoomDX12
-A low-level graphics+physics engine project with the goal of increasing the max number of bouncy objects in a room, while maintaining 60fps at stable state.
+A low-level graphics + physics engine project with the goal of increasing the max number of bouncy objects in a room, while maintaining 60fps at stable state.
 
-See [[#Hardware]] and [[#Scene]] sections below for current setup.
+See [Hardware](#Hardware) and [Scene](#Scene) sections below for current setup.
 # Recent Performance
 ## Latest Commit
 - **Max Balls Rendered at 60 FPS**: 215
 - **Bottleneck**: CPU bound
 
 ### Video/Screenshots
-
+[Video](docs/videos/BouncyRoomRecording.mp4)
 
 ## Previous Commit
 N/A
 
-See [[#History (latest to oldest)]] for max objects in past commits
 # Current Metrics when Rendering Max Balls at 60fps
-Total frames measured: 300
-Number of objects: 215
-Median Draw Calls: 445
-Median CPU Time: 16ms
-P95 CPU Time: 19ms
-P99 CPU Time: 21ms
-Median GPU Time: 7.47609ms
-P95 GPU Time: 9.17375ms
-P99 GPU Time: 9.29047ms
+- Total frames measured: 300
+- Number of objects: 215
+- Median Draw Calls: 445
+- Median CPU Time: 16ms
+- P95 CPU Time: 19ms
+- P99 CPU Time: 21ms
+- Median GPU Time: 7.47609ms
+- P95 GPU Time: 9.17375ms
+- P99 GPU Time: 9.29047ms
+
 # Scene
-**Resolution**: 1920 x 1080
-**Camera**: Perspective, fixed path revolution
-**Lights**: NONE
-**Shadows**: NONE
-**Physics**: NONE
-**VSync**: OFF
-**Present mode**: Windowed
-**Build configuration**: RELEASE + DX12 Debug mode off
+- **Resolution**: 1920 x 1080
+- **Camera**: Perspective, fixed path revolution
+- **Lights**: NONE
+- **Shadows**: NONE
+- **Physics**: NONE
+- **VSync**: OFF
+- **Present mode**: Windowed
+- **Build configuration**: RELEASE + DX12 Debug mode off
 
 ## Models
 | Model       | Vertices | Triangles | Textures (Resolution) | Source                                                                                                                                              |
@@ -70,7 +70,7 @@ P99 GPU Time: 9.29047ms
    - If all conditions met, exit and save [[#Current Metrics when Rendering Max Objects at 60fps]]
 
 # Current Code Flow Architecture
-[!Basic Architecture](docs/images/BasicArchitecture.png)
+![Basic Architecture](docs/images/BasicArchitecture.png)
 
 # Hardware
 ## CPU
@@ -101,32 +101,35 @@ P99 GPU Time: 9.29047ms
 
 # To-Dos
 ## Scene
-Add velocities to balls
-Add collision detection with room walls
-Add collision detection between balls
-Add ball rotation and angular momentum/velocity calculations
-Add lighting to scene
-Add physically based rendering
-Sample multiple textures (normal, albedo, tangent etc) instead of just the default one
-Full screen application
-Multiple ball models (varying shapes, number of vertices etc)
-(many more pending further analysis)
+Add velocities to balls  
+Add collision detection with room walls  
+Add collision detection between balls  
+Add ball rotation and angular momentum/velocity calculations  
+Add lighting to scene  
+Add physically based rendering  
+Sample multiple textures (normal, albedo, tangent etc) instead of just the default one  
+Full screen application  
+Multiple ball models (varying shapes, number of vertices etc)  
+(many more pending further analysis)  
+
 ## Optimization Strategies
 ### **CPU-bound**
-ECS
-Multithreaded calculations/command lists
-Pipelining Application->Simulation->Rendering using queues
-Move computation to GPU (Compute Shaders > SYCL/CUDA)
-(more pending further analysis)
+ECS  
+Multithreaded calculations/command lists  
+Pipelining Application->Simulation->Rendering using queues  
+Move computation to GPU (Compute Shaders > SYCL/CUDA)  
+(more pending further analysis)  
+
 ### **GPU-bound**
-Instancing/batching
-Culling (occlusion, back-face, frustum)
-Reducing overdraw
-Light-baking
-(more pending further analysis)
+Instancing/batching  
+Culling (occlusion, back-face, frustum)  
+Reducing overdraw  
+Light-baking  
+(more pending further analysis)  
+
 ## Cleanup/Fixes
-Make all objects that use D3D12 specifics outside the rendering engine either not use them or use interfaces
-Add more metrics:
+Make all objects that use D3D12 specifics outside the rendering engine either not use them or use interfaces  
+Add more metrics:  
 - AvgVisibleObjectsPerFrame
 - AvgDrawCallsPerFrame
 - AvgTrianglesRenderedPerFrame
