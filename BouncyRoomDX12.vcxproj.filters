@@ -21,93 +21,93 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="d3dx12.h">
+    <ClInclude Include="src\Benchmarker.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Model.h">
+    <ClInclude Include="src\BenchmarkingApplication.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Utils.h">
+    <ClInclude Include="src\Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stb_image.h">
+    <ClInclude Include="src\d3dx12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Macros.h">
+    <ClInclude Include="src\DefaultApplication.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ModelGLTF.h">
+    <ClInclude Include="src\Macros.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Benchmarker.h">
+    <ClInclude Include="src\Model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Transform.h">
+    <ClInclude Include="src\ModelGLTF.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ModelInstance.h">
+    <ClInclude Include="src\ModelInstance.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Scene.h">
+    <ClInclude Include="src\RenderingEngineD3D12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RenderingEngineD3D12.h">
+    <ClInclude Include="src\Scene.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SimulationEngine.h">
+    <ClInclude Include="src\SimulationEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="IApplication.h">
+    <ClInclude Include="src\stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Transform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IApplication.h">
       <Filter>Interfaces</Filter>
     </ClInclude>
-    <ClInclude Include="IRenderingEngine.h">
+    <ClInclude Include="src\IRenderingEngine.h">
       <Filter>Interfaces</Filter>
     </ClInclude>
-    <ClInclude Include="ISimulationEngine.h">
+    <ClInclude Include="src\ISimulationEngine.h">
       <Filter>Interfaces</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DefaultApplication.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="BenchmarkingApplication.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\Benchmarker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Model.cpp">
+    <ClCompile Include="src\BenchmarkingApplication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Benchmarker.cpp">
+    <ClCompile Include="src\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Transform.cpp">
+    <ClCompile Include="src\DefaultApplication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ModelInstance.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Scene.cpp">
+    <ClCompile Include="src\Model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RenderingEngineD3D12.cpp">
+    <ClCompile Include="src\ModelInstance.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SimulationEngine.cpp">
+    <ClCompile Include="src\RenderingEngineD3D12.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Camera.cpp">
+    <ClCompile Include="src\Scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DefaultApplication.cpp">
+    <ClCompile Include="src\SimulationEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BenchmarkingApplication.cpp">
+    <ClCompile Include="src\Transform.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

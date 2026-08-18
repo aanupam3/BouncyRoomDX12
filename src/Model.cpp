@@ -249,6 +249,7 @@ void Model::SetMeshTextures(int meshIndex, Mesh& mesh)
 
 void Model::SetMeshShaders(Mesh& mesh)
 {
+	std::string shaderBinPath = "./shaderBin/";
 	for (int i = 0; i < mesh.Primitives.size(); i++)
 	{
 		MeshPrimitive& meshPrimitive = mesh.Primitives[i];
@@ -256,14 +257,14 @@ void Model::SetMeshShaders(Mesh& mesh)
 
 		// TODO: Make generic for any type of shader
 		Shader vertexShader{};
-		vertexShader.BinPath = mesh.Name + "_VertexShader.cso";
+		vertexShader.BinPath = shaderBinPath + mesh.Name + "_VertexShader.cso";
 		//std::cout << "\nVertex Shader path: " << vertexShader.BinPath << "\n";
 		vertexShader.Type = ShaderType::VERTEX;
 		Utils::LoadBinaryData(vertexShader.BinPath, vertexShader.BinData, vertexShader.BinSize);
 		meshPrimitive.Shaders.push_back(vertexShader);
 
 		Shader pixelShader{};
-		pixelShader.BinPath = mesh.Name + "_PixelShader.cso";
+		pixelShader.BinPath = shaderBinPath + mesh.Name + "_PixelShader.cso";
 		//std::cout << "\Pixel Shader path: " << pixelShader.BinPath << "\n";
 		pixelShader.Type = ShaderType::PIXEL;
 		Utils::LoadBinaryData(pixelShader.BinPath, pixelShader.BinData, pixelShader.BinSize);
