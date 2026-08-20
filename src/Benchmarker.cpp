@@ -40,9 +40,8 @@ void Benchmarker::CalculateSteadyStateMetrics()
 
 Benchmarker::Benchmarker(int stabilizationFrameCount, int measurementFrameCount)
 {
-	EndStabilizationFrameNumber = stabilizationFrameCount;
-	EndMeasurementFrameNumber = measurementFrameCount + stabilizationFrameCount;
-	FramesToMeasureCount = measurementFrameCount;
+	TotalWarmupFramesCount = stabilizationFrameCount;
+	TotalMeasurementFramesCount = measurementFrameCount;
 
 	Reset();
 }
@@ -50,23 +49,23 @@ Benchmarker::Benchmarker(int stabilizationFrameCount, int measurementFrameCount)
 void Benchmarker::Reset()
 {
 	SSCalculatedMetrics = {};
-	CurrentOverallFrameNumber = 0;
-	CurrentMeasurementFrameNumber = 0;
+	CurrentWarmupFrameCount = 0;
+	CurrentMeasurementFrameCount = 0;
 
 	SSData.CpuFrameTimes.clear();
-	SSData.CpuFrameTimes.resize(FramesToMeasureCount);
+	SSData.CpuFrameTimes.resize(TotalMeasurementFramesCount);
 
 	SSData.GpuFrameTimes.clear();
-	SSData.GpuFrameTimes.resize(FramesToMeasureCount);
+	SSData.GpuFrameTimes.resize(TotalMeasurementFramesCount);
 
 	SSData.NumDrawCalls.clear();
-	SSData.NumDrawCalls.resize(FramesToMeasureCount);
+	SSData.NumDrawCalls.resize(TotalMeasurementFramesCount);
 
 	SSData.NumVisibleObjects.clear();
-	SSData.NumVisibleObjects.resize(FramesToMeasureCount);
+	SSData.NumVisibleObjects.resize(TotalMeasurementFramesCount);
 
 	SSData.NumVisibleObjects.clear();
-	SSData.NumTrianglesSubmitted.resize(FramesToMeasureCount);
+	SSData.NumTrianglesSubmitted.resize(TotalMeasurementFramesCount);
 }
 
 void Benchmarker::Report()

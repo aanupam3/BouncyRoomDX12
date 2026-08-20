@@ -4,6 +4,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "d3dx12.h"
 
 Model::Model(std::string modelBasePath, std::string name) : m_modelBasePath(modelBasePath), Name(name)
 {
@@ -271,6 +272,129 @@ void Model::SetMeshShaders(Mesh& mesh)
 		meshPrimitive.Shaders.push_back(pixelShader);
 	}
 }
+
+bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Device>& device)
+{
+	std::vector<D3D12_ROOT_PARAMETER> rootParams{};
+	rootParams.reserve(2);
+
+	D3D12_DESCRIPTOR_RANGE rootWVPMatricesDescRange{};
+	rootWVPMatricesDescRange.BaseShaderRegister = 0; //b0
+	rootWVPMatricesDescRange.NumDescriptors = 1;
+	rootWVPMatricesDescRange.OffsetInDescriptorsFromTableStart = 0;
+	rootWVPMatricesDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+
+	D3D12_ROOT_DESCRIPTOR_TABLE rootWVPMatricesDescTable{};
+	rootWVPMatricesDescTable.NumDescriptorRanges = 1;
+	rootWVPMatricesDescTable.pDescriptorRanges = &rootWVPMatricesDescRange;
+
+	D3D12_ROOT_PARAMETER rootParamWVP{};
+	rootParamWVP.DescriptorTable = rootWVPMatricesDescTable;
+	rootParamWVP.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParamWVP.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParams.emplace_back(rootParamWVP);
+
+	// ------------- texture srv -----------------------------------------------------------
+	if (meshPrimitive.Textures.size() > 0)
+	{
+		D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
+		rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
+		rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size());
+		rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+		D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
+		rootTexSrvDescriptorTable.NumDescriptorRanges = 1;
+		rootTexSrvDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
+
+		D3D12_ROOT_PARAMETER rootParamTextures{};
+		rootParamTextures.DescriptorTable = rootTexSrvDescriptorTable;
+		rootParamTextures.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParamTextures.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		rootParams.emplace_back(rootParamTextures);
+	}
+
+	D3D12_STATIC_SAMPLER_DESC textureSampler{}; // needs to be accessible rootSignatureDesc so has to be in the same scope as it
+
+	//D3D12_DESCRIPTOR_RANGE rootTextSamplerDescriptorRange{};
+	//rootTextSamplerDescriptorRange.BaseShaderRegister = 0; //t0
+	//rootTextSamplerDescriptorRange.NumDescriptors = 1;
+	//rootTextSamplerDescriptorRange.OffsetInDescriptorsFromTableStart = 0;
+	//rootTextSamplerDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+
+	//D3D12_ROOT_DESCRIPTOR_TABLE rootSamplerDescriptorTable{};
+	//rootSamplerDescriptorTable.NumDescriptorRanges = 1;
+	//rootSamplerDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
+
+	/*rootParams[2].DescriptorTable = rootSamplerDescriptorTable;
+	rootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;*/
+
+	// ----------------- root signature definition ------------------------------------------
+	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
+	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rootSignatureDesc.NumParameters = rootParams.size();
+	rootSignatureDesc.pParameters = rootParams.data();
+
+	if (meshPrimitive.Textures.size() > 0)
+	{
+		textureSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+		textureSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		textureSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		textureSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		textureSampler.ShaderRegister = 0; //s0
+		textureSampler.RegisterSpace = 0;
+		rootSignatureDesc.NumStaticSamplers = 1;
+		rootSignatureDesc.pStaticSamplers = &textureSampler;
+	}
+
+	ComPtr<ID3DBlob> signature{};
+	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.GetAddressOf(), nullptr);
+	PROMPTFAILHR(hr, "Failed to assign root signature blob! ");
+	hr = device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(meshPrimitive.RootSignature.GetAddressOf()));
+	PROMPTFAILHR(hr, "Failed to create root signature! ");
+
+	return true;
+}
+
+bool Model::CreatePipelineStateObject(MeshPrimitive& meshPrimitive, ComPtr<ID3D12RootSignature> rootSignature, ComPtr<ID3D12Device>& device)
+{
+	HRESULT hr;
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
+	graphicsPipelineStateDesc.InputLayout = meshPrimitive.InputLayout;
+	graphicsPipelineStateDesc.pRootSignature = rootSignature.Get();
+	graphicsPipelineStateDesc.VS = { meshPrimitive.Shaders[0].BinData.data(), meshPrimitive.Shaders[0].BinSize };
+	graphicsPipelineStateDesc.PS = { meshPrimitive.Shaders[1].BinData.data(), meshPrimitive.Shaders[1].BinSize };
+	graphicsPipelineStateDesc.NumRenderTargets = 1;
+	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	graphicsPipelineStateDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	graphicsPipelineStateDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+	D3D12_DEPTH_STENCIL_DESC dsDesc{};
+	dsDesc.DepthEnable = TRUE;
+	dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	dsDesc.StencilEnable = FALSE;
+	dsDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+	dsDesc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+	const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
+	{ D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
+	dsDesc.FrontFace = defaultStencilOp;
+	dsDesc.BackFace = defaultStencilOp;
+
+	graphicsPipelineStateDesc.DepthStencilState = dsDesc;
+	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	graphicsPipelineStateDesc.SampleMask = 0xffffff; // point sampling
+	graphicsPipelineStateDesc.SampleDesc = { 1, 0 };
+
+	graphicsPipelineStateDesc.pRootSignature = meshPrimitive.RootSignature.Get();
+	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(meshPrimitive.PipelineStateObject.GetAddressOf()));
+	PROMPTFAILHR(device->GetDeviceRemovedReason(), "Failed to create graphics pipeline state object. ");
+
+	return true;
+}
+
 
 void Model::SetNodes()
 {

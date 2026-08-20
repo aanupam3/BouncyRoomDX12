@@ -43,7 +43,6 @@ private:
 	bool CreateDevice();
 	bool CreateFactory();
 	bool CreateFences();
-	bool CreatePipelineStateObject(const MeshPrimitive& meshPrimitive);
 	bool CreateRootSignature(const MeshPrimitive& meshPrimitive);
 	bool CreateRTVAndDescriptorHeap();
 	bool CreateSwapChain();
@@ -66,9 +65,7 @@ private:
 	ComPtr<ID3D12DescriptorHeap> m_depthStencilDescriptorHeap{};
 	ComPtr<ID3D12Device> m_device{};
 	ComPtr<IDXGIFactory4> m_dxgiFactory{};
-	ComPtr<ID3D12PipelineState> m_pipelineStateObject{};
 	ComPtr<ID3D12Resource> m_renderTargets[kFrameBufferCount]{};
-	ComPtr<ID3D12RootSignature> m_rootSignature{};
 	ComPtr<ID3D12DescriptorHeap> m_rtvDescriptorHeap{};
 	ComPtr<IDXGISwapChain3> m_swapChain{};
 

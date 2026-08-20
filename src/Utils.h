@@ -17,7 +17,7 @@ namespace Utils
 			.count();
 	}
 
-	static void LoadBinaryData(const std::string& binarySrcPath, byte*& dst, size_t& binSize)
+	static void LoadBinaryData(const std::string& binarySrcPath, std::vector<byte>& dst, size_t& binSize)
 	{
 		std::ifstream binFile{ binarySrcPath, std::ios::binary | std::ios::ate };
 		if (!binFile.is_open())
@@ -31,13 +31,20 @@ namespace Utils
 			binSize = binFile.tellg();
 		}
 
-		if (dst == nullptr)
+		dst.clear();
+		dst.reserve(binSize);
+		/*if (dst == nullptr)
 		{
 			dst = new byte[binSize];
-		}
+		}*/
 
+		byte* tempData = new byte[binSize];
 		binFile.seekg(0, std::ios::beg);
-		binFile.read((char*)dst, binSize);
+		binFile.read((char*)tempData, binSize);
+
+		dst.assign(tempData, tempData + binSize);
+
+		delete[] tempData;
 	}
 
 	static std::vector<float> xmMatrixToVector(const DirectX::XMMATRIX& matrix)

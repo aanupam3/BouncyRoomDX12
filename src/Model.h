@@ -44,7 +44,7 @@ struct Shader
 {
 	ShaderType Type{};
 	std::string BinPath{};
-	byte* BinData{};
+	std::vector<byte> BinData{};
 	size_t BinSize{ 0 };
 };
 
@@ -59,7 +59,9 @@ struct MeshPrimitive
 	std::vector<Texture> Textures;
 	std::vector<Shader> Shaders;
 
-	// Note that WVP resources are located in model instances as they will be different for each instance
+
+	ComPtr<ID3D12PipelineState> PipelineStateObject{};
+	ComPtr<ID3D12RootSignature> RootSignature{};
 
 	D3D12_INPUT_LAYOUT_DESC InputLayout{};
 	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayoutList{};
@@ -94,6 +96,7 @@ private:
 	std::vector<LocalNode> m_nodesLocalSpace{};
 
 	void ExtractDataFromGLTF();
+
 	void SetNodes();
 	void SetMeshes();
 
@@ -107,6 +110,9 @@ public:
 	~Model();
 
 	std::string Name;
+
+	bool CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Device>& device);
+	bool CreatePipelineStateObject(MeshPrimitive& meshPrimitive, ComPtr<ID3D12RootSignature> rootSignature, ComPtr<ID3D12Device>& device);
 
 	// getters
 	const ModelGLTF::ModelJson* GetModelJson() const { return m_modelJson; }

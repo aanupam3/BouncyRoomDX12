@@ -49,13 +49,16 @@ bool BenchmarkingApplication::Update(Scene& scene)
 	}
 
 	// after stablization, stop at the beginning of update to track the last full CPU frame time
-	if (m_benchmarker->CurrentOverallFrameNumber >= m_benchmarker->EndStabilizationFrameNumber)
+	if (m_benchmarker->CurrentWarmupFrameCount >= m_benchmarker->TotalWarmupFramesCount)
 	{
-		m_benchmarker->StopTime(m_benchmarker->SSData.CpuFrameTimes[m_benchmarker->CurrentMeasurementFrameNumber]);
-		//std::cout << "CPU time measured: " << m_benchmarker->SSData.CpuFrameTimes[m_benchmarker->CurrentMeasurementFrameNumber] << "\n";
+		m_benchmarker->StopTime(m_benchmarker->SSData.CpuFrameTimes[m_benchmarker->CurrentMeasurementFrameCount]);
+		m_benchmarker->CurrentMeasurementFrameCount++;
+		//std::cout << "CPU time measured: " << m_benchmarker->SSData.CpuFrameTimes[m_benchmarker->CurrentMeasurementFrameCount] << "\n";
 	}
 
-	if (m_benchmarker->CurrentOverallFrameNumber >= m_benchmarker->EndMeasurementFrameNumber)
+	m_benchmarker->CurrentWarmupFrameCount++;
+
+	if (m_benchmarker->CurrentMeasurementFrameCount >= m_benchmarker->TotalMeasurementFramesCount)
 	{
 		std::cout << "Number of objects: " << m_currentNumberOfBalls << "\n";
 		m_benchmarker->Report();
@@ -77,13 +80,10 @@ bool BenchmarkingApplication::Update(Scene& scene)
 
 	MoveCamera(scene.GetCamera());
 
-	if (m_benchmarker->CurrentOverallFrameNumber >= m_benchmarker->EndStabilizationFrameNumber - 1)
+	if (m_benchmarker->CurrentWarmupFrameCount >= m_benchmarker->TotalWarmupFramesCount)
 	{
-		m_benchmarker->CurrentMeasurementFrameNumber++;
-		m_benchmarker->StartTime(m_benchmarker->SSData.CpuFrameTimes[m_benchmarker->CurrentMeasurementFrameNumber]);
+		m_benchmarker->StartTime(m_benchmarker->SSData.CpuFrameTimes[m_benchmarker->CurrentMeasurementFrameCount]);
 	}
-
-	m_benchmarker->CurrentOverallFrameNumber++;
 
 	return true;
 }

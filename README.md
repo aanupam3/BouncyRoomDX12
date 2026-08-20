@@ -14,25 +14,26 @@ Once loaded you should see the terminal and a separate render window. The termin
 
 # Recent Performance
 
-### Latest Commit
+### Latest Relevant Commit
+- **Max Balls Rendered at 60 FPS**: 712
+- **Bottleneck**: CPU bound
+
+### Previous Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 215
 - **Bottleneck**: CPU bound
 - **Memory**: Severe memory use ( > 8 GB) due to lack of instancing
 
-### Previous Commit
-N/A
-
 # Current Metrics when Rendering Max Balls at 60fps
+- Number of objects: 712
 - Total frames measured: 300
-- Number of objects: 215
-- Median Draw Calls: 445
+- Median Draw Calls: 1439
 - Median CPU Time: 16ms
-- P95 CPU Time: 19ms
-- P99 CPU Time: 21ms
-- Median GPU Time: 7.47609ms
-- P95 GPU Time: 9.17375ms
-- P99 GPU Time: 9.29047ms
-- Memory (RAM): > 8 GB
+- P95 CPU Time: 24ms
+- P99 CPU Time: 26ms
+- Median GPU Time: 13.9172ms
+- P95 GPU Time: 19.8149ms
+- P99 GPU Time: 22.4696ms
+- Memory: 612 MB RAM
 
 # Scene
 - **Resolution**: 1920 x 1080
@@ -144,7 +145,14 @@ Add more metrics:
 - AvgDrawCallsPerFrame
 - AvgTrianglesRenderedPerFrame
 - PrimaryBottleneck: CPU | GPU | Mixed
+Currently, ModelInstances only differ with each other with transforms, not other stuff (textures etc)  
 
+## Capabilities
+Move all D3D12 specifics into a custom ModelD3D12 object, making the regular Model free on DX12 specifics so that we can swap renderers in the future
+
+## Benchmarking
+Add CPU and GPU memory metrics
+Add more granular timing metrics (Application vs SimulationEngine vs RenderingEngine etc)
 # Commit Syntax
 - [STRATEGY] {optimization strategy}: {max num of objects at 60fps}
 	- e.g., [STRATEGY] Added Instancing: 300

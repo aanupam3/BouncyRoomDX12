@@ -67,16 +67,15 @@ public:
 
 	} SSCalculatedMetrics{};
 
-	int EndStabilizationFrameNumber{};
-	int EndMeasurementFrameNumber{};
-	int FramesToMeasureCount{};
+	int TotalWarmupFramesCount{};
+	int TotalMeasurementFramesCount{};
 
 	UINT64 GpuTimestampFrequency{};
 	ComPtr<ID3D12QueryHeap> TimestampQueryHeap{};
 	ComPtr<ID3D12Resource> TimestampDataResource{};
 
-	int CurrentOverallFrameNumber = 0;
-	int CurrentMeasurementFrameNumber = 0;
+	int CurrentWarmupFrameCount = 0;
+	int CurrentMeasurementFrameCount = 0;
 	bool IsFirstRender{};
 
 	// --------------- Static functions -------------------------------------------------------

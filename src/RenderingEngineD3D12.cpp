@@ -3,6 +3,7 @@
 
 bool RenderingEngineD3D12::Init(Scene& scene)
 {
+	HRESULT hr;
 	CHECK_FAIL(CreateFactory());
 	CHECK_FAIL(CreateDevice()); // needs factory
 	CHECK_FAIL(CreateCommandAllocators()); // needs m_device
@@ -23,7 +24,7 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 		D3D12_QUERY_HEAP_DESC timestampQueryHeapDesc{};
 		timestampQueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
 		timestampQueryHeapDesc.Count = 2;
-		HRESULT hr = m_device->CreateQueryHeap(&timestampQueryHeapDesc, IID_PPV_ARGS(m_benchmarker->TimestampQueryHeap.GetAddressOf()));
+		hr = m_device->CreateQueryHeap(&timestampQueryHeapDesc, IID_PPV_ARGS(m_benchmarker->TimestampQueryHeap.GetAddressOf()));
 		PROMPTFAILHR(hr, "Failed to create timestamp query heap. ");
 
 		m_commandQueue->GetTimestampFrequency(&m_benchmarker->GpuTimestampFrequency);
@@ -81,6 +82,8 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 					CHECK_FAIL(CreateTextureResource(texture));
 					CHECK_FAIL(UploadTexture(texture));
 				}
+				CHECK_FAIL(model.CreateRootSignature(meshPrimitive, m_device));
+				CHECK_FAIL(model.CreatePipelineStateObject(meshPrimitive, meshPrimitive.RootSignature, m_device));
 			}
 		}
 	}
@@ -384,148 +387,6 @@ void RenderingEngineD3D12::CreateViewport()
 	m_scissorRect.bottom = m_renderWindow.Height;
 }
 
-bool RenderingEngineD3D12::CreateRootSignature(const MeshPrimitive& meshPrimitive)
-{
-	std::vector<D3D12_ROOT_PARAMETER> rootParams{};
-	//rootParams.reserve(2);
-
-	D3D12_DESCRIPTOR_RANGE rootWVPMatricesDescRange{};
-	rootWVPMatricesDescRange.BaseShaderRegister = 0; //b0
-	rootWVPMatricesDescRange.NumDescriptors = 1;
-	rootWVPMatricesDescRange.OffsetInDescriptorsFromTableStart = 0;
-	rootWVPMatricesDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-
-	D3D12_ROOT_DESCRIPTOR_TABLE rootWVPMatricesDescTable{};
-	rootWVPMatricesDescTable.NumDescriptorRanges = 1;
-	rootWVPMatricesDescTable.pDescriptorRanges = &rootWVPMatricesDescRange;
-
-	D3D12_ROOT_PARAMETER rootParamWVP{};
-	rootParamWVP.DescriptorTable = rootWVPMatricesDescTable;
-	rootParamWVP.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParamWVP.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	rootParams.push_back(rootParamWVP);
-
-	// ------------- texture srv -----------------------------------------------------------
-	if (meshPrimitive.Textures.size() > 0)
-	{
-		D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
-		rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
-		rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size());
-		rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-		rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-
-		D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
-		rootTexSrvDescriptorTable.NumDescriptorRanges = 1;
-		rootTexSrvDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
-
-		D3D12_ROOT_PARAMETER rootParamTextures{};
-		rootParamTextures.DescriptorTable = rootTexSrvDescriptorTable;
-		rootParamTextures.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		rootParamTextures.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-		rootParams.push_back(rootParamTextures);
-	}
-
-	D3D12_STATIC_SAMPLER_DESC textureSampler{}; // needs to be accessible rootSignatureDesc so has to be in the same scope as it
-
-	//D3D12_DESCRIPTOR_RANGE rootTextSamplerDescriptorRange{};
-	//rootTextSamplerDescriptorRange.BaseShaderRegister = 0; //t0
-	//rootTextSamplerDescriptorRange.NumDescriptors = 1;
-	//rootTextSamplerDescriptorRange.OffsetInDescriptorsFromTableStart = 0;
-	//rootTextSamplerDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-
-	//D3D12_ROOT_DESCRIPTOR_TABLE rootSamplerDescriptorTable{};
-	//rootSamplerDescriptorTable.NumDescriptorRanges = 1;
-	//rootSamplerDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
-
-	/*rootParams[2].DescriptorTable = rootSamplerDescriptorTable;
-	rootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;*/
-
-	// ----------------- root signature definition ------------------------------------------
-	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
-	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	rootSignatureDesc.NumParameters = rootParams.size();
-	rootSignatureDesc.pParameters = rootParams.data();
-
-	if (meshPrimitive.Textures.size() > 0)
-	{
-		textureSampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		textureSampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		textureSampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		textureSampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-		textureSampler.ShaderRegister = 0; //s0
-		textureSampler.RegisterSpace = 0;
-		rootSignatureDesc.NumStaticSamplers = 1;
-		rootSignatureDesc.pStaticSamplers = &textureSampler;
-	}
-
-	ComPtr<ID3DBlob> signature{};
-	ComPtr<ID3DBlob> errorBlob{};
-	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.GetAddressOf(), errorBlob.GetAddressOf());
-
-	if (FAILED(hr))
-	{
-		if (errorBlob)
-		{
-			const char* errorMsg = (const char*)errorBlob->GetBufferPointer();
-			MessageBoxA(0, errorMsg, "Error", MB_OK);
-		}
-	}
-	PROMPTFAILHR(hr, "Failed to assign root signature blob! ");
-
-	hr = m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(m_rootSignature.GetAddressOf()));
-
-	PROMPTFAILHR(hr, "Failed to create root signature! ");
-
-	return true;
-}
-
-
-// Needs root signature and input layout
-bool RenderingEngineD3D12::CreatePipelineStateObject(const MeshPrimitive& meshPrimitive)
-{
-	HRESULT hr;
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.InputLayout = meshPrimitive.InputLayout;
-	graphicsPipelineStateDesc.pRootSignature = m_rootSignature.Get();
-	graphicsPipelineStateDesc.VS = { meshPrimitive.Shaders[0].BinData, meshPrimitive.Shaders[0].BinSize };
-	graphicsPipelineStateDesc.PS = { meshPrimitive.Shaders[1].BinData, meshPrimitive.Shaders[1].BinSize };
-	graphicsPipelineStateDesc.NumRenderTargets = 1;
-	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	graphicsPipelineStateDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	graphicsPipelineStateDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-
-	D3D12_DEPTH_STENCIL_DESC dsDesc{};
-	dsDesc.DepthEnable = TRUE;
-	dsDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	dsDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	dsDesc.StencilEnable = FALSE;
-	dsDesc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
-	dsDesc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
-	const D3D12_DEPTH_STENCILOP_DESC defaultStencilOp =
-	{ D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_STENCIL_OP_KEEP, D3D12_COMPARISON_FUNC_ALWAYS };
-	dsDesc.FrontFace = defaultStencilOp;
-	dsDesc.BackFace = defaultStencilOp;
-
-	graphicsPipelineStateDesc.DepthStencilState = dsDesc;
-	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-	graphicsPipelineStateDesc.SampleMask = 0xffffff; // point sampling
-	graphicsPipelineStateDesc.SampleDesc = { 1, 0 };
-
-	// When using triangle strip primitive topology, vertex positions are interpreted as vertices of a continuous triangle “strip”.
-	// There is a special index value that represents the desire to have a discontinuity in the strip, the cut index value. 
-	// This enum lists the supported cut values.
-	//graphicsPipelineStateDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
-
-	hr = m_device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(m_pipelineStateObject.GetAddressOf()));
-
-	PROMPTFAILHR(m_device->GetDeviceRemovedReason(), "Failed to create graphics pipeline state object. ");
-
-	return true;
-}
-
-
 // Assumes buffer is n*256-byte aligned and the resource property is UPLOAD/GPU_UPLOAD
 bool RenderingEngineD3D12::UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSize)
 {
@@ -575,7 +436,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	PROMPTFAILHR(hr, "Failed to reset command allocator");
 
 	// reset, now ready for recording
-	hr = m_commandList->Reset(m_commandAllocators[m_currentFrameIndex].Get(), m_pipelineStateObject.Get());
+	hr = m_commandList->Reset(m_commandAllocators[m_currentFrameIndex].Get(), nullptr);
 	PROMPTFAILHR(hr, "Failed to reset command LIST");
 
 	if (m_benchmarker)
@@ -632,10 +493,8 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 			{
 				// Graphics update
 				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
-				CHECK_FAIL(CreateRootSignature(meshPrimitive));
-				CHECK_FAIL(CreatePipelineStateObject(meshPrimitive));
-				m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-				m_commandList->SetPipelineState(m_pipelineStateObject.Get());
+				m_commandList->SetGraphicsRootSignature(meshPrimitive.RootSignature.Get());
+				m_commandList->SetPipelineState(meshPrimitive.PipelineStateObject.Get());
 
 				int slot = 0;
 				for (const D3D12_VERTEX_BUFFER_VIEW& vertexBufferView : meshPrimitive.VertexBufferViews)
@@ -661,7 +520,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 
 				if (m_benchmarker)
 				{
-					m_benchmarker->SSData.NumDrawCalls[m_benchmarker->CurrentMeasurementFrameNumber]++;
+					m_benchmarker->SSData.NumDrawCalls[m_benchmarker->CurrentMeasurementFrameCount]++;
 				}
 			}
 		}
@@ -694,7 +553,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 
 		UINT64* mappedValues = (UINT64*)mapped;
 		double gpuTimeFrame = 1000.0 * (mappedValues[1] - mappedValues[0]) / (double)m_benchmarker->GpuTimestampFrequency;
-		m_benchmarker->SSData.GpuFrameTimes[m_benchmarker->CurrentMeasurementFrameNumber] = gpuTimeFrame;
+		m_benchmarker->SSData.GpuFrameTimes[m_benchmarker->CurrentMeasurementFrameCount] = gpuTimeFrame;
 
 	}
 	hr = m_commandList->Close();
@@ -1033,8 +892,8 @@ bool RenderingEngineD3D12::Shutdown()
 		SAFE_RELEASE(m_commandAllocators[i]);
 	}
 
-	SAFE_RELEASE(m_pipelineStateObject);
-	SAFE_RELEASE(m_rootSignature);
+	SAFE_RELEASE(PipelineStateObject);
+	SAFE_RELEASE(RootSignature);
 	SAFE_RELEASE(m_rtvDescriptorHeap);
 
 	for (int i = 0; i < kFrameBufferCount; ++i)
