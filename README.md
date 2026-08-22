@@ -1,6 +1,8 @@
 # BouncyRoomDX12
 A low-level graphics + physics engine project with the goal of increasing the max number of bouncy objects in a room, while maintaining 60fps at stable state. See [Hardware](#Hardware) and [Scene](#Scene) sections below for current setup.
 
+Note: All code is architected and written by hand, AI is referenced only for learning/clearing up concepts
+
 ### Video/Screenshots
 Note that balls are currently stationary as a baseline  
 ![GIF](docs/images/BouncyRoomRecording.gif)  
@@ -11,17 +13,20 @@ Ideally you should build the .sln. But you can try running the binary (BouncyRoo
 Once loaded you should see the terminal and a separate render window. The terminal will ask you how many balls to render.  
 ![Usage](docs/images/Usage.png)
 
-
 # Recent Performance
 
 ### Latest Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 712
 - **Bottleneck**: CPU bound
+- Commit ID: fc75cbc047654c758f63cb5fff36398c15dd4eed
+- Commit Name: [STRATEGY][CLEANUP] Streamlined pipeline and root signature creation
 
 ### Previous Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 215
 - **Bottleneck**: CPU bound
-- **Memory**: Severe memory use ( > 8 GB) due to lack of instancing
+- **Memory**: Severe memory use ( > 8 GB) due to repeated creation of PSO
+- Commit ID: b9814309d5b4ef4c311200908a49a68d24ef8b52
+- Commit Name: [SCENE][CLEANUP][BENCHMARK] Set up a basic room with stationary balls
 
 # Current Metrics when Rendering Max Balls at 60fps
 - Number of objects: 712
@@ -52,6 +57,9 @@ Once loaded you should see the terminal and a separate render window. The termin
 | Tennis Ball | 764      | 1500      | 6 (2048 x 2048)       | "Tennis Ball" (https://skfb.ly/6yZCW) by Tentrox is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).<br>  |
 
 # Current Test Sequence
+
+Benchmarking recording:
+![GIF](docs/images/BouncyRoomRecording_Benchmarking.gif)  
 
 1. **Warm up**
    - Run `N` (e.g., 100) frames with `x` number of starting objects.
