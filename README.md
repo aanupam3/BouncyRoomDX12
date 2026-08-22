@@ -57,6 +57,7 @@ Once loaded you should see the terminal and a separate render window. The termin
 | Tennis Ball | 764      | 1500      | 6 (2048 x 2048)       | "Tennis Ball" (https://skfb.ly/6yZCW) by Tentrox is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).<br>  |
 
 # Current Test Sequence
+Benchmarking mode can be run by adding the `--benchmark` flag: `.\BouncyRoomDX12.exe --benchmark`
 
 Benchmarking recording:
 ![GIF](docs/images/BouncyRoomRecording_Benchmarking.gif)  
