@@ -45,6 +45,7 @@ MeshRendererDX12/
 VSCaptures/
 BouncyRoomDX12/
 PIXCaptures/
+Intel*/
 
 # CMake generated files
 CMakeFiles/

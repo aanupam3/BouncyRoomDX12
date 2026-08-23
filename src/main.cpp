@@ -216,9 +216,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 			DispatchMessage(&msg);
 		}
 		else {
+			//PIXBeginEvent(PIX_COLOR(255, 0, 0), "ApplicationUpdate");
 			BREAK_IF_FAIL(application->Update(mainScene), "\nApplication triggered shutdown...");
+			//PIXEndEvent();
+
+			//PIXBeginEvent(PIX_COLOR(0, 255, 0), "SimulationUpdate");
 			BREAK_IF_FAIL(simulationEngine->Update(mainScene), "\nSimulationEngine triggered shutdown...");
+			//PIXEndEvent();
+
+			// PIXBeginEvent(PIX_COLOR(0, 0, 255), "Rendering");
 			BREAK_IF_FAIL(renderingEngine->Render(mainScene), "\nRenderingEngine triggered shutdown...");
+			// PIXEndEvent();
 		}
 	}
 

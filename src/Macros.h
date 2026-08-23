@@ -37,3 +37,5 @@ LOG_HR_AND_RETURN_FAIL(hr, msg);\
 #define PI 3.14159
 
 #define DIRECTXM_VECTOR_SIZE 16
+
+#define PIX_ENABLED 0

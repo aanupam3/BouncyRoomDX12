@@ -17,7 +17,7 @@ Once loaded you should see the terminal and a separate render window. The termin
 
 ### Latest Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 712
-- **Bottleneck**: CPU bound
+- **Bottleneck**: CPU bound (Main Culprit is repeated calls to DrawIndexedInstance and IASetVertexBuffers for each mesh primitive, due to a lack of instancing)
 - Commit ID: fc75cbc047654c758f63cb5fff36398c15dd4eed
 - Commit Name: [STRATEGY][CLEANUP] Streamlined pipeline and root signature creation
 

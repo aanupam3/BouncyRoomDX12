@@ -1,6 +1,20 @@
 #include "Macros.h"
 #include "RenderingEngineD3D12.h"
 
+void PixBeginEventCustom(UINT32 pixColor, const char* name)
+{
+#if PIX_ENABLED 1
+	PixBeginEvent(pixColor, name);
+#endif
+}
+
+void PixEndEventCustom()
+{
+#if PIX_ENABLED 1
+	PixEndEvent();
+#endif
+}
+
 bool RenderingEngineD3D12::Init(Scene& scene)
 {
 	HRESULT hr;
@@ -429,7 +443,9 @@ bool RenderingEngineD3D12::WaitForPreviousFrame()
 
 bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 {
+	PixBeginEventCustom(PIX_COLOR(255, 0, 0), "WaitForPreviousFrame");
 	WaitForPreviousFrame();
+	PixEndEventCustom();
 
 	HRESULT hr = m_commandAllocators[m_currentFrameIndex]->Reset();
 
@@ -444,6 +460,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 		m_commandList->EndQuery(m_benchmarker->TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0);
 	}
 
+	PixBeginEventCustom(PIX_COLOR(0, 255, 0), "Rasterizer and Depth Setup");
 	// change from present state to render target state for recording
 	D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_renderTargets[m_currentFrameIndex].Get(),
@@ -451,6 +468,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 		D3D12_RESOURCE_STATE_RENDER_TARGET
 	);
 	m_commandList->ResourceBarrier(1, &barrier);
+
 
 	// need to get the descriptor handle so we can set it as the render target in output merger stage of pipeline
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvDescriptorHandle
@@ -478,6 +496,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	PixEndEventCustom();
 
 	//std::vector<ID3D12DescriptorHeap*>* textureSRVDescriptorHeaps = new std::vector<ID3D12DescriptorHeap*>();
 	std::vector<ModelInstance>& objects = scene.GetObjects();
@@ -492,6 +511,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 			for (int i = 0; i < mesh.Primitives.size(); i++)
 			{
 				// Graphics update
+				PixBeginEventCustom(PIX_COLOR(0, 255, 255), "PSO Setup");
 				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
 				m_commandList->SetGraphicsRootSignature(meshPrimitive.RootSignature.Get());
 				m_commandList->SetPipelineState(meshPrimitive.PipelineStateObject.Get());
@@ -515,8 +535,11 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 					descriptorHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 					m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
 				}
+				PixEndEventCustom();
 
+				PixBeginEventCustom(PIX_COLOR(0, 0, 255), "DrawIndexedInstance");
 				m_commandList->DrawIndexedInstanced(meshPrimitive.NumIndices, 1, 0, 0, 0);
+				PixEndEventCustom();
 
 				if (m_benchmarker)
 				{
@@ -525,7 +548,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 			}
 		}
 	}
-
+	PixBeginEventCustom(PIX_COLOR(255, 0, 255), "Transition Resource barrier to Present");
 	// change resource state back to present state for rendering
 	D3D12_RESOURCE_BARRIER barrier2 = CD3DX12_RESOURCE_BARRIER::Transition(
 		m_renderTargets[m_currentFrameIndex].Get(),
@@ -557,6 +580,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 
 	}
 	hr = m_commandList->Close();
+	PixEndEventCustom();
 
 	return true;
 }
