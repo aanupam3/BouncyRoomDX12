@@ -6,7 +6,6 @@ Note: All code is architected and written by hand, AI is referenced only for lea
 ### Video/Screenshots
 Note that balls are currently stationary as a baseline  
 ![GIF](docs/images/BouncyRoomRecording.gif)  
-Video link: [Video](docs/videos/BouncyRoomRecording.mp4)
 
 ### Usage: 
 Ideally you should build the .sln. But you can try running the binary (BouncyRoomDX12.exe) directly, although that may not work.  
@@ -30,7 +29,7 @@ Once loaded you should see the terminal and a separate render window. The termin
 # Current Metrics when Rendering Max Balls at 60fps
 ### Latet Relevant Commit
 - Number of objects: 9625
-Total frames measured: 300
+- Total frames measured: 300
 - Median Draw Calls: 15
 - Median CPU Time: 16ms
 - P95 CPU Time: 17ms
@@ -71,7 +70,7 @@ Total frames measured: 300
 # Current Test Sequence
 Benchmarking mode can be run by adding the `--benchmark` flag: `.\BouncyRoomDX12.exe --benchmark`
 
-Benchmarking recording:
+Benchmarking recording:  
 ![GIF](docs/images/BouncyRoomRecording_Benchmarking.gif)  
 
 1. **Warm up**
