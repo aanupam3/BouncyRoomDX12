@@ -42,7 +42,8 @@ Model::~Model()
 		}
 	}
 	m_meshes.clear();
-	m_nodesLocalSpace.clear();
+	m_nodesModelSpace.clear();
+
 }
 
 void Model::ExtractDataFromGLTF()
@@ -273,34 +274,118 @@ void Model::SetMeshShaders(Mesh& mesh)
 	}
 }
 
+//
+//void Model::SetInstances(int numInstances)
+//{
+//	WorldRootTransformBuffersAllInstances.resize(numInstances);
+//	WVPMatrixVectorAllInstances.resize(numInstances);
+//
+//	for (UINT nodeIndex = 0; nodeIndex < m_nodesWorldSpace.size(); nodeIndex++)
+//	{
+//		Node& nodeWithMesh = objectNodes[nodeIndex];
+//		if (nodeWithMesh.MeshIndex == -1) { continue; }
+//
+//	}
+//}
+//
+//void Model::UpdateInstanceWorldTransform(Transform& transform, UINT index)
+//{
+//	//std::vector<Node>& baseModelNodes = GetNodesModelSpace(); // base model nodes are in local space, and will now be updated in the instance to world space
+//	//int numNodes = baseModelNodes.size();
+//
+//	// Update to world level based on input transform
+//	/*const DirectX::XMMATRIX& worldTransformationMatrix = transform.GetTransformationMatrix();
+//	for (int i = 0; i < m_nodesModelSpace.size(); i++)
+//	{
+//		Node& node = m_nodesModelSpace[i];
+//		WorldRootTransformBuffersAllInstances[index] = DirectX::XMMatrixMultiply(node.NodeTransform.GetTransformationMatrix(), worldTransformationMatrix)
+//	}*/
+//
+//	//for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
+//	//{
+//	//	Node& baseNode = baseModelNodes[nodeIndex];
+//	//	Node& worldNode = m_nodesWorldSpace[nodeIndex];
+//	//	worldNode.ChildrenNodeIndexes = baseNode.ChildrenNodeIndexes;
+//	//	worldNode.ParentNodeIndex = baseNode.ParentNodeIndex;
+//	//	worldNode.MeshIndex = baseNode.MeshIndex;
+//
+//	//	DirectX::XMMATRIX instanceNodeLocalTransformationMatrix = baseNode.NodeTransform.GetTransformationMatrix();
+//	//	worldNode.NodeTransform.SetAndExtractFromTransformationMatrix(instanceNodeLocalTransformationMatrix);
+//	//}
+//
+//
+//}
+
+
 bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Device>& device)
 {
 	std::vector<D3D12_ROOT_PARAMETER> rootParams{};
-	rootParams.reserve(2);
 
-	D3D12_DESCRIPTOR_RANGE rootWVPMatricesDescRange{};
-	rootWVPMatricesDescRange.BaseShaderRegister = 0; //b0
-	rootWVPMatricesDescRange.NumDescriptors = 1;
-	rootWVPMatricesDescRange.OffsetInDescriptorsFromTableStart = 0;
-	rootWVPMatricesDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	// Layout ------------------------
+	// Descriptor Table 1:
+	//	Descriptor at b0: VPMatrix (CBV)
+	//	Descriptor at b1: MeshPrimitiveModelSpaceTransformBuffer(CBV)
+	// Descriptor Table 2:
+	//	t0: WorldRootTransformBufferAllInstances(SRV)
+	// Descriptor Table 3: 
+	//	t1: Texture 1 (SRV)
+	//	t2: Texture 2 (SRV)
+	//  ...
+	rootParams.reserve(3); // 3 tables
 
-	D3D12_ROOT_DESCRIPTOR_TABLE rootWVPMatricesDescTable{};
-	rootWVPMatricesDescTable.NumDescriptorRanges = 1;
-	rootWVPMatricesDescTable.pDescriptorRanges = &rootWVPMatricesDescRange;
+	// ------------- Table 1: CBVs -----------------------------------------------
+	// First table contains both CBVs
+	D3D12_ROOT_DESCRIPTOR_TABLE rootCBVsDescTable{};
 
-	D3D12_ROOT_PARAMETER rootParamWVP{};
-	rootParamWVP.DescriptorTable = rootWVPMatricesDescTable;
-	rootParamWVP.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParamWVP.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	rootParams.emplace_back(rootParamWVP);
+	D3D12_DESCRIPTOR_RANGE rootVPMatrixBufferDescRange{};
+	rootVPMatrixBufferDescRange.BaseShaderRegister = 0; //b0
+	rootVPMatrixBufferDescRange.NumDescriptors = 1;
+	rootVPMatrixBufferDescRange.OffsetInDescriptorsFromTableStart = 0;
+	rootVPMatrixBufferDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 
-	// ------------- texture srv -----------------------------------------------------------
+	D3D12_DESCRIPTOR_RANGE rootMeshPrimitiveModelSpaceTransformDescRange{};
+	rootMeshPrimitiveModelSpaceTransformDescRange.BaseShaderRegister = 1; //b1
+	rootMeshPrimitiveModelSpaceTransformDescRange.NumDescriptors = 1;
+	rootMeshPrimitiveModelSpaceTransformDescRange.OffsetInDescriptorsFromTableStart = 1;
+	rootMeshPrimitiveModelSpaceTransformDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+
+	constexpr UINT numCBVDescriptorRanges = 2;
+	rootCBVsDescTable.NumDescriptorRanges = numCBVDescriptorRanges;
+	std::array<D3D12_DESCRIPTOR_RANGE, numCBVDescriptorRanges> cbvDescriptorRanges{ rootVPMatrixBufferDescRange, rootMeshPrimitiveModelSpaceTransformDescRange };
+	rootCBVsDescTable.pDescriptorRanges = cbvDescriptorRanges.data();
+
+	D3D12_ROOT_PARAMETER rootParamCBVs{};
+	rootParamCBVs.DescriptorTable = rootCBVsDescTable;
+	rootParamCBVs.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParamCBVs.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	rootParams.emplace_back(rootParamCBVs);
+
+	// ------------- Table 2: WorldRootTransformBufferAllInstances SRV -----------------------------------
+	D3D12_DESCRIPTOR_RANGE allInstancesSRVDescRange{};
+	allInstancesSRVDescRange.BaseShaderRegister = 0; //t0
+	allInstancesSRVDescRange.NumDescriptors = 1;
+	allInstancesSRVDescRange.OffsetInDescriptorsFromTableStart = 0;
+	allInstancesSRVDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+	D3D12_ROOT_DESCRIPTOR_TABLE rootAllInstancesSRVTable{};
+	rootAllInstancesSRVTable.NumDescriptorRanges = 1;
+	rootAllInstancesSRVTable.pDescriptorRanges = &allInstancesSRVDescRange;
+
+	D3D12_ROOT_PARAMETER rootParamAllInstancesSRV{};
+	rootParamAllInstancesSRV.DescriptorTable = rootAllInstancesSRVTable;
+	rootParamAllInstancesSRV.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParamAllInstancesSRV.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	rootParams.emplace_back(rootParamAllInstancesSRV);
+
+	// ------------- Table 3: Textures SRV -----------------------------------------------------------
 	if (meshPrimitive.Textures.size() > 0)
 	{
 		D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
-		rootTextSrvDescriptorRange.BaseShaderRegister = 0; //t0
+		rootTextSrvDescriptorRange.BaseShaderRegister = 1; //t1
 		rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size());
-		rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = 0;//D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 		rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 
 		D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
@@ -311,6 +396,7 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 		rootParamTextures.DescriptorTable = rootTexSrvDescriptorTable;
 		rootParamTextures.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 		rootParamTextures.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
 		rootParams.emplace_back(rootParamTextures);
 	}
 
@@ -399,14 +485,15 @@ bool Model::CreatePipelineStateObject(MeshPrimitive& meshPrimitive, ComPtr<ID3D1
 void Model::SetNodes()
 {
 	UINT numNodes = static_cast<UINT>(m_modelJson->nodes.size());
-	m_nodesLocalSpace.clear();
-	m_nodesLocalSpace.resize(numNodes);
+	m_nodesModelSpace.clear();
+	m_nodesModelSpace.resize(numNodes);
 
 	for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
 		ModelGLTF::Node& nodeJson = m_modelJson->nodes[nodeIndex];
-		LocalNode& node = m_nodesLocalSpace[nodeIndex];
+		Node& node = m_nodesModelSpace[nodeIndex];
 
+		// These are in local node space
 		node.NodeTransform.SetAndExtractFromTransformationMatrix(DirectX::XMMATRIX(nodeJson.matrix.data()));
 
 		if (nodeJson.mesh != -1)
@@ -418,13 +505,19 @@ void Model::SetNodes()
 		node.ChildrenNodeIndexes = nodeJson.children;
 	}
 
+	// Assign parent nodes to their children & upgrade nodes to model space from their local node space
 	for (UINT nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
 	{
-		LocalNode& node = m_nodesLocalSpace[nodeIndex];
+		Node& node = m_nodesModelSpace[nodeIndex];
 		for (int childNodeIndex : node.ChildrenNodeIndexes)
 		{
-			LocalNode& childNode = m_nodesLocalSpace[childNodeIndex];
+			Node& childNode = m_nodesModelSpace[childNodeIndex];
 			childNode.ParentNodeIndex = nodeIndex;
+
+			DirectX::XMMATRIX modelSpaceMatrix =
+				childNode.NodeTransform.GetTransformationMatrix() * node.NodeTransform.GetTransformationMatrix();
+
+			childNode.NodeTransform.SetAndExtractFromTransformationMatrix(modelSpaceMatrix);
 		}
 	}
 }

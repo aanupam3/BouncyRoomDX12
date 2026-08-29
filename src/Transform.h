@@ -1,6 +1,8 @@
 #pragma once
 
 #include "DirectXMath.h"
+#include "Macros.h"
+#include <array>
 #include <d3d12.h>
 #include <iostream>
 #include <string>
@@ -18,11 +20,14 @@ private:
 	DirectX::XMMATRIX m_scalingMatrix{};
 	DirectX::XMMATRIX m_transformationMatrix{};
 
+	std::array<float, MATRIX4X4_NUMELEMENTS> m_transformMatrixArray{};
+
 public:
 	const DirectX::XMFLOAT3& GetPosition() const { return m_position; }
 	const DirectX::XMFLOAT3& GetRotationRadians() const { return m_rotationRadians; }
 	const DirectX::XMFLOAT3& GetScale() const { return m_scale; }
 	const DirectX::XMMATRIX& GetTransformationMatrix() const { return m_transformationMatrix; }
+	std::array<float, MATRIX4X4_NUMELEMENTS>& GetTransformMatrixArray() { return m_transformMatrixArray; }
 
 	void SetPosition(float x, float y, float z);
 	void SetRotationDegrees(float x, float y, float z);

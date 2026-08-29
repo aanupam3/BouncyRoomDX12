@@ -19,3 +19,13 @@ void Camera::SetTransform(Transform transform)
 {
 	m_transform = transform;
 }
+
+void Camera::SetVPMatrix()
+{
+	const DirectX::XMMATRIX& cameraWorldMatrix = m_transform.GetTransformationMatrix();
+	const DirectX::XMMATRIX& projectionMatrix = m_projectionMatrix;
+	const DirectX::XMMATRIX viewMatrix{ DirectX::XMMatrixInverse(nullptr, cameraWorldMatrix) };
+	m_vpMatrix = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
+
+	m_vpMatrixBuffer = Utils::xmMatrixToArray(m_vpMatrix);
+}

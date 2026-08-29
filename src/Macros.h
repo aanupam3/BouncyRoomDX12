@@ -10,7 +10,7 @@
 using Microsoft::WRL::ComPtr;
 
 //#define D3DCOMPILE_DEBUG 1
-#define CHECK_FAIL(fn) if(!fn) { return false; } 
+#define CHECK_FAIL(fn, msg) if(!fn) { std::cerr << msg << "\n"; return false; } 
 #define BREAK_IF_FAIL(fn, msg)  if(!fn) { std::cerr << msg; break; } 
 
 #define LOGHR(hr, msg) \
@@ -39,3 +39,5 @@ LOG_HR_AND_RETURN_FAIL(hr, msg);\
 #define DIRECTXM_VECTOR_SIZE 16
 
 #define PIX_ENABLED 0
+
+#define ALIGN_256(content) ~255 & (255 + content)

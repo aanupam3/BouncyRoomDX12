@@ -1,6 +1,8 @@
 #pragma once
+#include "Macros.h"
 #include "ModelGLTF.h"
 #include "Transform.h"
+#include <array>
 #include <nlohmann/json.hpp>
 #include <wrl.h>
 
@@ -50,24 +52,26 @@ struct Shader
 
 struct MeshPrimitive
 {
-	std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
 	std::vector<std::string> AttributeNames{};
+	std::vector<D3D12_VERTEX_BUFFER_VIEW> VertexBufferViews{};
 
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView{};
-	UINT NumIndices;
+	UINT NumIndices{};
 
-	std::vector<Texture> Textures;
-	std::vector<Shader> Shaders;
-
+	std::vector<Texture> Textures{};
+	std::vector<Shader> Shaders{};
 
 	ComPtr<ID3D12PipelineState> PipelineStateObject{};
 	ComPtr<ID3D12RootSignature> RootSignature{};
 
 	D3D12_INPUT_LAYOUT_DESC InputLayout{};
 	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayoutList{};
+
+	ComPtr<ID3D12DescriptorHeap> PrimitiveShaderVisibleDescriptorHeap{};
+	ComPtr<ID3D12Resource> MeshPrimitiveModelSpaceTransformBufferResource{}; // matrix containing the model space transform of this mesh primitive
 };
 
-struct LocalNode
+struct Node
 {
 	Transform NodeTransform{};
 	std::vector<int> ChildrenNodeIndexes{};
@@ -82,6 +86,14 @@ struct Mesh
 	int NodeIndex;
 };
 
+
+struct Instance
+{
+	Transform WorldTransform;
+	bool IsEnabled;
+	long Index;
+};
+
 class Model
 {
 private:
@@ -93,7 +105,8 @@ private:
 	ModelBinData* m_binData;
 
 	std::vector<Mesh> m_meshes{};
-	std::vector<LocalNode> m_nodesLocalSpace{};
+	std::vector<Node> m_nodesModelSpace{};
+	//std::vector<Node> m_nodesWorldSpace{};
 
 	void ExtractDataFromGLTF();
 
@@ -102,7 +115,6 @@ private:
 
 	void SetMeshTextures(int meshIndex, Mesh& mesh);
 	void SetMeshShaders(Mesh& mesh);
-
 public:
 	Model(std::string modelBasePath, std::string name = "");
 	void SetMeshVertexBufferViews(int meshIndex);
@@ -110,6 +122,8 @@ public:
 	~Model();
 
 	std::string Name;
+	std::vector<std::array<float, MATRIX4X4_NUMELEMENTS>> WorldRootTransformBuffersAllInstances{};
+	ComPtr<ID3D12Resource> WorldRootTransformBuffersAllInstancesResource{};
 
 	bool CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Device>& device);
 	bool CreatePipelineStateObject(MeshPrimitive& meshPrimitive, ComPtr<ID3D12RootSignature> rootSignature, ComPtr<ID3D12Device>& device);
@@ -118,7 +132,7 @@ public:
 	const ModelGLTF::ModelJson* GetModelJson() const { return m_modelJson; }
 	const ModelBinData* GetBinData() const { return m_binData; }
 	std::vector<Mesh>& GetMeshes() { return m_meshes; }
-	std::vector<LocalNode>& GetNodes() { return m_nodesLocalSpace; }
+	std::vector<Node>& GetNodesModelSpace() { return m_nodesModelSpace; }
 
 	ComPtr<ID3D12Resource> ModelBinResource;
 };

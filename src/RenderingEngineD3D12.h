@@ -28,6 +28,8 @@ public:
 	bool Render(Scene&) override;
 	bool Shutdown() override;
 
+	size_t DescriptorHandleIncrementSizeCBVSRVUAV;
+
 	GraphicsAPI GetRenderingEngineType() { return m_graphicsAPI; };
 
 private:
@@ -41,6 +43,7 @@ private:
 	bool CreateCommandQueue();
 	bool CreateDepthStencilBuffer();
 	bool CreateDevice();
+	bool ResetSceneForInstances(Scene& scene);
 	bool CreateFactory();
 	bool CreateFences();
 	bool CreateRootSignature(const MeshPrimitive& meshPrimitive);
@@ -49,9 +52,9 @@ private:
 	bool CreateTextureResource(Texture& texture);
 	void CreateViewport();
 	bool Reset();
-	bool SetShaderVisibleDescriptors(ModelInstance& instance, WorldNode& nodeWithMesh);
 	bool UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSize);
 	bool UpdatePipeline(Scene&);
+	bool UploadSceneData(Scene& scene);
 	bool UploadTexture(Texture& texture, bool useWriteToSubResource = true);
 	bool WaitForPreviousFrame();
 

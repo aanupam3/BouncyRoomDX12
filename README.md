@@ -16,19 +16,31 @@ Once loaded you should see the terminal and a separate render window. The termin
 # Recent Performance
 
 ### Latest Relevant Commit
+- **Max Balls Rendered at 60 FPS**: 9625
+- **Bottleneck**: CPU bound (Reason coming soon)
+- Commit ID: 
+- Commit Name: [STRATEGY][CLEANUP] Streamlined pipeline and root signature creation
+
+### Previous Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 712
 - **Bottleneck**: CPU bound (Main Culprit is repeated calls to DrawIndexedInstance and IASetVertexBuffers for each mesh primitive, due to a lack of instancing)
 - Commit ID: fc75cbc047654c758f63cb5fff36398c15dd4eed
 - Commit Name: [STRATEGY][CLEANUP] Streamlined pipeline and root signature creation
 
-### Previous Relevant Commit
-- **Max Balls Rendered at 60 FPS**: 215
-- **Bottleneck**: CPU bound
-- **Memory**: Severe memory use ( > 8 GB) due to repeated creation of PSO
-- Commit ID: b9814309d5b4ef4c311200908a49a68d24ef8b52
-- Commit Name: [SCENE][CLEANUP][BENCHMARK] Set up a basic room with stationary balls
-
 # Current Metrics when Rendering Max Balls at 60fps
+### Latet Relevant Commit
+- Number of objects: 9625
+Total frames measured: 300
+- Median Draw Calls: 15
+- Median CPU Time: 16ms
+- P95 CPU Time: 17ms
+- P99 CPU Time: 18ms
+- Median GPU Time: 14ms
+- P95 GPU Time: 15ms
+- P99 GPU Time: 15ms
+- Memory: 460 MB RAM
+
+### Previous Commit
 - Number of objects: 712
 - Total frames measured: 300
 - Median Draw Calls: 1439
@@ -155,9 +167,14 @@ Add more metrics:
 - AvgTrianglesRenderedPerFrame
 - PrimaryBottleneck: CPU | GPU | Mixed
 Currently, ModelInstances only differ with each other with transforms, not other stuff (textures etc)  
+Add const and constexpr where needed
+Make models into an unordered_map for easy referencing of models
 
 ## Capabilities
 Move all D3D12 specifics into a custom ModelD3D12 object, making the regular Model free on DX12 specifics so that we can swap renderers in the future
+Allow multiple separate objects (i.e., > 1 root node) in glTF format
+Support formats other than glTF (e.g., .fbx, obj)
+Allow motion of objects within a given gltf model
 
 ## Benchmarking
 Add CPU and GPU memory metrics
@@ -175,6 +192,3 @@ Add more granular timing metrics (Application vs SimulationEngine vs RenderingEn
 	- e.g., [BENCHMARKER] Added Measuring 1% GPU Frame time: 250
 - [DOCUMENTATION] {readme updates, comments etc}
 - [CLEANUP] {refactors to improve modularity/scalability, removing unused code/comments}
-
-# History (latest to oldest)
-(See commit history)

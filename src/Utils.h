@@ -1,5 +1,6 @@
 #pragma once
 #include "DirectXMath.h"
+#include <array>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -7,6 +8,8 @@
 #include <windows.h>
 
 typedef unsigned char byte;
+
+#define MATRIX4X4_NUMELEMENTS 16
 
 namespace Utils
 {
@@ -47,7 +50,7 @@ namespace Utils
 		delete[] tempData;
 	}
 
-	static std::vector<float> xmMatrixToVector(const DirectX::XMMATRIX& matrix)
+	static std::array<float, MATRIX4X4_NUMELEMENTS> xmMatrixToArray(const DirectX::XMMATRIX& matrix)
 	{
 		DirectX::XMFLOAT4X4 storedMatrix;
 		DirectX::XMStoreFloat4x4(&storedMatrix, matrix);

@@ -76,11 +76,11 @@ void Benchmarker::Report()
 	//std::cout << "Steady State Metrics\n";
 
 	CalculateSteadyStateMetrics();
-	std::cout << "Median Draw Calls: " << SSCalculatedMetrics.MedianDrawCalls << "\n";
-	std::cout << "Median CPU Time: " << SSCalculatedMetrics.MedianCpuFrameTime << "ms \n";
-	std::cout << "P95 CPU Time: " << SSCalculatedMetrics.P95CpuFrameTime << "ms \n";
-	std::cout << "P99 CPU Time: " << SSCalculatedMetrics.P99CpuFrameTime << "ms \n";
-	std::cout << "Median GPU Time: " << SSCalculatedMetrics.MedianGpuFrameTime << "ms \n";
-	std::cout << "P95 GPU Time: " << SSCalculatedMetrics.P95GpuFrameTime << "ms \n";
-	std::cout << "P99 GPU Time: " << SSCalculatedMetrics.P99GpuFrameTime << "ms \n";
+	std::cout << "- Median Draw Calls: " << SSCalculatedMetrics.MedianDrawCalls << "\n";
+	std::cout << "- Median CPU Time: " << round(SSCalculatedMetrics.MedianCpuFrameTime) << "ms \n";
+	std::cout << "- P95 CPU Time: " << round(SSCalculatedMetrics.P95CpuFrameTime) << "ms \n";
+	std::cout << "- P99 CPU Time: " << round(SSCalculatedMetrics.P99CpuFrameTime) << "ms \n";
+	std::cout << "- Median GPU Time: " << round(SSCalculatedMetrics.MedianGpuFrameTime) << "ms \n";
+	std::cout << "- P95 GPU Time: " << round(SSCalculatedMetrics.P95GpuFrameTime) << "ms \n";
+	std::cout << "- P99 GPU Time: " << round(SSCalculatedMetrics.P99GpuFrameTime) << "ms \n";
 }

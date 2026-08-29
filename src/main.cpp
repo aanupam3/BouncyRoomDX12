@@ -1,9 +1,9 @@
 #include "BenchmarkingApplication.h"
 #include "DefaultApplication.h"
 #include "Macros.h"
-#include "ModelInstance.h"
 #include "RenderingEngineD3D12.h"
 #include "SimulationEngine.h"
+#include <shellapi.h> 
 
 bool g_running = false;
 
@@ -196,6 +196,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 		renderingEngine->Shutdown();
 		return 1;
 	}
+
+	SetForegroundWindow(GetConsoleWindow());
 
 	// -------------------------------------------------------------------------------------------------------------
 	// Main Loop ---------------------------------------------------------------------------------------------------

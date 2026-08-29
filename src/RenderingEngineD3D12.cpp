@@ -18,15 +18,15 @@ void PixEndEventCustom()
 bool RenderingEngineD3D12::Init(Scene& scene)
 {
 	HRESULT hr;
-	CHECK_FAIL(CreateFactory());
-	CHECK_FAIL(CreateDevice()); // needs factory
-	CHECK_FAIL(CreateCommandAllocators()); // needs m_device
-	CHECK_FAIL(CreateCommandQueue()); // needs m_device
-	CHECK_FAIL(CreateSwapChain()); // needs factory and m_device and command queue
-	CHECK_FAIL(CreateRTVAndDescriptorHeap()); // needs m_device and swapchain
-	CHECK_FAIL(CreateDepthStencilBuffer()); // needs m_device
-	CHECK_FAIL(CreateCommandList()); // needs m_device and command allocator
-	CHECK_FAIL(CreateFences()); // needs m_device
+	CHECK_FAIL(CreateFactory(), "Failed to Create Factory");
+	CHECK_FAIL(CreateDevice(), "Failed to CreateDevice"); // needs factory
+	CHECK_FAIL(CreateCommandAllocators(), "Failed to CreateCommandAllocators"); // needs m_device
+	CHECK_FAIL(CreateCommandQueue(), "Failed to CreateCommandQueue"); // needs m_device
+	CHECK_FAIL(CreateSwapChain(), "Failed to CreateSwapChain"); // needs factory and m_device and command queue
+	CHECK_FAIL(CreateRTVAndDescriptorHeap(), "Failed to CreateRTVAndDescriptorHeap"); // needs m_device and swapchain
+	CHECK_FAIL(CreateDepthStencilBuffer(), "Failed to CreateDepthStencilBuffer"); // needs m_device
+	CHECK_FAIL(CreateCommandList(), "Failed to CreateCommandList"); // needs m_device and command allocator
+	CHECK_FAIL(CreateFences(), "Failed to CreateFences"); // needs m_device
 
 	//CHECK_FAIL(CompileShaders());
 	CreateViewport();
@@ -66,21 +66,34 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 		);
 	}
 
-	// Uploading all resources for base models. These are shared by each object of a given model
+	// Uploading all resources for base models. These are shared by each model of a given model
+	Camera& camera = scene.GetCamera();
+	CHECK_FAIL(CreateBufferResource(camera.VPMatrixResource, ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float))), "Failed to create VP Matrix Resource");
+	CHECK_FAIL(UploadBuffer(camera.VPMatrixResource.Get(), reinterpret_cast<byte*> (camera.GetVPMatrixBuffer().data()), MATRIX4X4_NUMELEMENTS * sizeof(float)), "Failed to uplpoad camera VP buffer");
+
 	std::vector<Model>& models = scene.GetModels();
 	for (Model& model : models)
 	{
 		const ModelBinData* modelBinData = model.GetBinData();
-		CHECK_FAIL(CreateBufferResource(model.ModelBinResource, modelBinData->binDataSize));
-		CHECK_FAIL(UploadBuffer(model.ModelBinResource.Get(), modelBinData->binData, modelBinData->binDataSize));
+		CHECK_FAIL(CreateBufferResource(model.ModelBinResource, modelBinData->binDataSize), "Failed to CreateBufferResource for ModelBin, Model: " + model.Name);
+		CHECK_FAIL(UploadBuffer(model.ModelBinResource.Get(), modelBinData->binData, modelBinData->binDataSize), "Failed to UploadBuffer for ModelBin, Model: " + model.Name);
+
+		// Create the resource to store root node transform data for all instances contiguously (used by shader later when formulating the wvp)
+		// Uploading only in Init() since instances are not moving
+		CHECK_FAIL(CreateBufferResource(model.WorldRootTransformBuffersAllInstancesResource, ALIGN_256(model.WorldRootTransformBuffersAllInstances.size() * MATRIX4X4_NUMELEMENTS * sizeof(float))), "Failed to CreateBufferResource for WorldRootTransformBuffersAllInstancesResource, Model: " + model.Name);
+		UploadBuffer(model.WorldRootTransformBuffersAllInstancesResource.Get(),
+			reinterpret_cast<byte*>(model.WorldRootTransformBuffersAllInstances.data()),
+			ALIGN_256(model.WorldRootTransformBuffersAllInstances.size() * MATRIX4X4_NUMELEMENTS * sizeof(float))
+		);
 
 		std::vector<Mesh>& modelMeshes = model.GetMeshes();
-
+		std::vector<Node>& modelNodes = model.GetNodesModelSpace();
 		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
 		{
 			Mesh& mesh = modelMeshes[meshIndex];
+			Node& meshNode = modelNodes[mesh.NodeIndex];
 
-			std::cout << "Setting up GPU resources for model " << model.Name << " mesh: " << mesh.Name << "\n";
+			//std::cout << "Setting up GPU resources for model " << model.Name << " mesh: " << mesh.Name << "\n";
 
 			// These need the model binary's address so that the buffer view's location can be assigned
 			// that's why we set them here instead of in the Model constructor
@@ -91,13 +104,83 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 			{
 				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
 				std::vector<Texture>& meshPrimitiveTextures = meshPrimitive.Textures;
-				for (Texture& texture : meshPrimitiveTextures)
+				// This is redundant if there are multiple mesh primitives per mesh since they would all share a common node
+				CHECK_FAIL(CreateBufferResource(meshPrimitive.MeshPrimitiveModelSpaceTransformBufferResource, ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float))), "Failed to Create buffer for MeshPrimitiveModelSpaceTransformBufferResource, Model: " + model.Name + ", MeshIndex: " + std::to_string(i));
+				CHECK_FAIL(UploadBuffer(
+					meshPrimitive.MeshPrimitiveModelSpaceTransformBufferResource.Get(),
+					reinterpret_cast<byte*>(meshNode.NodeTransform.GetTransformMatrixArray().data()),
+					ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float))
+				), "Failed to Upload buffer for MeshPrimitiveModelSpaceTransformBufferResource, Model: " + model.Name + ", MeshIndex: " + std::to_string(i)); // Currently parts of a model are not moving w.r.t each other, so we assume these are constant by uploading them once in Init() 
+
+
+				// Create Descriptor Heap -----------------------------------------------------------------
+				D3D12_DESCRIPTOR_HEAP_DESC primitiveShaderVisibleDescriptor_HeapDesc{};
+				primitiveShaderVisibleDescriptor_HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+				primitiveShaderVisibleDescriptor_HeapDesc.NodeMask = 0;
+				primitiveShaderVisibleDescriptor_HeapDesc.NumDescriptors = meshPrimitive.Textures.size() + 3; // Num of textures used by this mesh + 3 (MeshPrimitiveModelSpaceTransformBufferResource, WorldRootTransformBuffersAllInstancesResource, VPMatrixTransformBuffer 
+				primitiveShaderVisibleDescriptor_HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+				m_device->CreateDescriptorHeap(
+					&primitiveShaderVisibleDescriptor_HeapDesc,
+					IID_PPV_ARGS(meshPrimitive.PrimitiveShaderVisibleDescriptorHeap.GetAddressOf())
+				);
+
+				// Create and Add VP Matrix Descriptor (CBV) to each DescriptorHeap ----------------------------
+				D3D12_CPU_DESCRIPTOR_HANDLE descriptorHeapCPUHandle{ meshPrimitive.PrimitiveShaderVisibleDescriptorHeap.Get()->GetCPUDescriptorHandleForHeapStart() };
+				D3D12_CONSTANT_BUFFER_VIEW_DESC vpMatrixConstantBufferViewDesc{};
+				vpMatrixConstantBufferViewDesc.BufferLocation = scene.GetCamera().VPMatrixResource->GetGPUVirtualAddress();
+				vpMatrixConstantBufferViewDesc.SizeInBytes = ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float));
+				m_device->CreateConstantBufferView(&vpMatrixConstantBufferViewDesc, descriptorHeapCPUHandle);
+
+				// Set CBV for ModelMatrix ------------------------------------------------------------------------------------------
+				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
+				D3D12_CONSTANT_BUFFER_VIEW_DESC modelMatrix_CBVDesc{};
+				modelMatrix_CBVDesc.BufferLocation = meshPrimitive.MeshPrimitiveModelSpaceTransformBufferResource.Get()->GetGPUVirtualAddress();
+				modelMatrix_CBVDesc.SizeInBytes = ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float));
+				m_device->CreateConstantBufferView(&modelMatrix_CBVDesc, descriptorHeapCPUHandle);
+
+				// SRV for WorldRootTransformBuffersAllInstances ---------------------------------------------------------------------------------------
+				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
+				D3D12_BUFFER_SRV worldRootTransformBuffersAllInstances_BufferSRV{};
+				worldRootTransformBuffersAllInstances_BufferSRV.FirstElement = 0;
+				worldRootTransformBuffersAllInstances_BufferSRV.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+				worldRootTransformBuffersAllInstances_BufferSRV.NumElements = model.WorldRootTransformBuffersAllInstances.size();
+				worldRootTransformBuffersAllInstances_BufferSRV.StructureByteStride = MATRIX4X4_NUMELEMENTS * sizeof(float);
+
+				D3D12_SHADER_RESOURCE_VIEW_DESC worldRootTransformBuffersAllInstances_SRVDesc{};
+				worldRootTransformBuffersAllInstances_SRVDesc.Buffer = worldRootTransformBuffersAllInstances_BufferSRV;
+				worldRootTransformBuffersAllInstances_SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+				worldRootTransformBuffersAllInstances_SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				worldRootTransformBuffersAllInstances_SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+				m_device->CreateShaderResourceView(
+					model.WorldRootTransformBuffersAllInstancesResource.Get(),
+					&worldRootTransformBuffersAllInstances_SRVDesc,
+					descriptorHeapCPUHandle
+				);
+
+				// Create, Upload, and SRVs for textures ------------------------------------------------------------------------------------------------------------------------
+				std::vector<Texture>& textures = meshPrimitive.Textures;
+				for (Texture& texture : textures)
 				{
-					CHECK_FAIL(CreateTextureResource(texture));
-					CHECK_FAIL(UploadTexture(texture));
+					CHECK_FAIL(CreateTextureResource(texture), "Failed to CreateTextureResource, Model: " + model.Name + ", texture: " + texture.Name);
+					CHECK_FAIL(UploadTexture(texture), "Failed to UploadTexture, Model: " + model.Name + ", texture: " + texture.Name);
+
+					descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
+
+					D3D12_TEX2D_SRV tex_Tex2DSRV{};
+					tex_Tex2DSRV.MipLevels = 1;
+
+					D3D12_SHADER_RESOURCE_VIEW_DESC tex_SRVDesc{};
+					tex_SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+					tex_SRVDesc.Texture2D = tex_Tex2DSRV;
+					tex_SRVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+					tex_SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+
+					m_device->CreateShaderResourceView(texture.GPUResource.Get(), &tex_SRVDesc, descriptorHeapCPUHandle);
 				}
-				CHECK_FAIL(model.CreateRootSignature(meshPrimitive, m_device));
-				CHECK_FAIL(model.CreatePipelineStateObject(meshPrimitive, meshPrimitive.RootSignature, m_device));
+
+				CHECK_FAIL(model.CreateRootSignature(meshPrimitive, m_device), "Failed to CreateRootSignature for Mesh Primitive, Model: " + model.Name + ", MeshIndex: " + std::to_string(i));
+				CHECK_FAIL(model.CreatePipelineStateObject(meshPrimitive, meshPrimitive.RootSignature, m_device), "Failed to CreatePipelineStateObject for  Mesh Primitive, Model: " + model.Name + ", MeshIndex: " + std::to_string(i));
 			}
 		}
 	}
@@ -113,6 +196,68 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 	std::cout << "\n========== Engine Initialized ==============\n";
 
 	return true;
+}
+
+// Assumes no new models added, no new cameras added/changed. Only changes are in the number of instances of existing models
+bool RenderingEngineD3D12::ResetSceneForInstances(Scene& scene)
+{
+	std::vector<Model>& models = scene.GetModels();
+	for (Model& model : models)
+	{
+		// Reset the resource to be used again with new numbers of elements
+		model.WorldRootTransformBuffersAllInstancesResource.Reset();
+		CHECK_FAIL(CreateBufferResource(model.WorldRootTransformBuffersAllInstancesResource, ALIGN_256(model.WorldRootTransformBuffersAllInstances.size() * MATRIX4X4_NUMELEMENTS * sizeof(float))), "Failed to CreateBufferResource for WorldRootTransformBuffersAllInstancesResource, Model: " + model.Name);
+		UploadBuffer(model.WorldRootTransformBuffersAllInstancesResource.Get(),
+			reinterpret_cast<byte*>(model.WorldRootTransformBuffersAllInstances.data()),
+			ALIGN_256(model.WorldRootTransformBuffersAllInstances.size() * MATRIX4X4_NUMELEMENTS * sizeof(float))
+		);
+
+		std::vector<Mesh>& modelMeshes = model.GetMeshes();
+		std::vector<Node>& modelNodes = model.GetNodesModelSpace();
+		for (UINT meshIndex = 0; meshIndex < modelMeshes.size(); meshIndex++)
+		{
+			Mesh& mesh = modelMeshes[meshIndex];
+			Node& meshNode = modelNodes[mesh.NodeIndex];
+
+			//std::cout << "Setting up new instances for " << model.Name << " mesh: " << mesh.Name << "\n";
+
+			for (int i = 0; i < mesh.Primitives.size(); i++)
+			{
+				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
+
+				// We can re-use the existing descriptor heap since the number of descriptors in the heap isn't changing
+
+				// Create and Add VP Matrix Descriptor (CBV) to each DescriptorHeap ----------------------------
+				D3D12_CPU_DESCRIPTOR_HANDLE descriptorHeapCPUHandle{ meshPrimitive.PrimitiveShaderVisibleDescriptorHeap.Get()->GetCPUDescriptorHandleForHeapStart() };
+
+				// Camera, ModelMatrix CBVs and Texture SRVs do not change since they are tied to the model, only the instance descriptor heap changes
+
+				// SRV for WorldRootTransformBuffersAllInstances ---------------------------------------------------------------------------------------
+				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 2;
+				D3D12_BUFFER_SRV worldRootTransformBuffersAllInstances_BufferSRV{};
+				worldRootTransformBuffersAllInstances_BufferSRV.FirstElement = 0;
+				worldRootTransformBuffersAllInstances_BufferSRV.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+				worldRootTransformBuffersAllInstances_BufferSRV.NumElements = model.WorldRootTransformBuffersAllInstances.size();
+				worldRootTransformBuffersAllInstances_BufferSRV.StructureByteStride = MATRIX4X4_NUMELEMENTS * sizeof(float);
+
+				D3D12_SHADER_RESOURCE_VIEW_DESC worldRootTransformBuffersAllInstances_SRVDesc{};
+				worldRootTransformBuffersAllInstances_SRVDesc.Buffer = worldRootTransformBuffersAllInstances_BufferSRV;
+				worldRootTransformBuffersAllInstances_SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+				worldRootTransformBuffersAllInstances_SRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				worldRootTransformBuffersAllInstances_SRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+				m_device->CreateShaderResourceView(
+					model.WorldRootTransformBuffersAllInstancesResource.Get(),
+					&worldRootTransformBuffersAllInstances_SRVDesc,
+					descriptorHeapCPUHandle
+				);
+
+				// Should not need to change root signature since number of descriptor tables/root params and layout is same
+				// CHECK_FAIL(model.CreateRootSignature(meshPrimitive, m_device), "Failed to CreateRootSignature for Mesh Primitive, Model: " + model.Name + ", MeshIndex: " + std::to_string(i));
+				// CHECK_FAIL(model.CreatePipelineStateObject(meshPrimitive, meshPrimitive.RootSignature, m_device), "Failed to CreatePipelineStateObject for  Mesh Primitive, Model: " + model.Name + ", MeshIndex: " + std::to_string(i));
+			}
+		}
+	}
 }
 
 bool RenderingEngineD3D12::CreateFactory()
@@ -177,6 +322,7 @@ bool RenderingEngineD3D12::CreateDevice()
 	if (adapterFound)
 	{
 		D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(m_device.GetAddressOf()));
+		DescriptorHandleIncrementSizeCBVSRVUAV = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		return true;
 	}
 	else
@@ -402,16 +548,16 @@ void RenderingEngineD3D12::CreateViewport()
 }
 
 // Assumes buffer is n*256-byte aligned and the resource property is UPLOAD/GPU_UPLOAD
-bool RenderingEngineD3D12::UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSize)
+bool RenderingEngineD3D12::UploadBuffer(ID3D12Resource* bufferResource, byte* bufferData, size_t bufferSizeBytes)
 {
 	void* mapped = nullptr;
 	D3D12_RANGE readRange = { 0, 0 }; // CPU will not read
 	HRESULT hr = bufferResource->Map(0, &readRange, &mapped);
 	PROMPTFAILHR(hr, "Failed to map buffer resource");
 
-	memcpy(mapped, bufferData, bufferSize);
+	memcpy(mapped, bufferData, bufferSizeBytes);
 
-	D3D12_RANGE writtenRange = { 0, bufferSize };
+	D3D12_RANGE writtenRange = { 0, bufferSizeBytes };
 
 	bufferResource->Unmap(0, &writtenRange);
 
@@ -471,17 +617,9 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 
 
 	// need to get the descriptor handle so we can set it as the render target in output merger stage of pipeline
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvDescriptorHandle
-	{
-		m_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart() ,
-		m_currentFrameIndex,
-		m_rtvDescriptorSize
-	};
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvDescriptorHandle{ m_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_currentFrameIndex, m_rtvDescriptorSize };
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE dsDescriptorHandle
-	{
-		m_depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart()
-	};
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsDescriptorHandle{ m_depthStencilDescriptorHeap->GetCPUDescriptorHandleForHeapStart() };
 
 	// If RTsSingleHandleToDescriptorRange (3rd arg) is TRUE, 
 	// pRenderTargetDescriptors (2nd arg) points to a contiguous descriptor range (GPU offsets by descriptor size); 
@@ -499,14 +637,15 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	PixEndEventCustom();
 
 	//std::vector<ID3D12DescriptorHeap*>* textureSRVDescriptorHeaps = new std::vector<ID3D12DescriptorHeap*>();
-	std::vector<ModelInstance>& objects = scene.GetObjects();
-	for (ModelInstance& object : objects)
+	std::vector<Model>& models = scene.GetModels();
+
+	for (Model& model : models)
 	{
-		std::vector<Mesh>& modelMeshes = object.BaseModel->GetMeshes();
-		std::vector<WorldNode>& objectWorldNodes = object.GetNodes();
+		std::vector<Mesh>& modelMeshes = model.GetMeshes();
+		std::vector<Node>& modelNodes = model.GetNodesModelSpace();
 		for (Mesh& mesh : modelMeshes)
 		{
-			WorldNode& nodeWithMesh = objectWorldNodes[mesh.NodeIndex];
+			Node& nodeWithMesh = modelNodes[mesh.NodeIndex];
 			//std::cout << mesh.Name << "Mesh Primitives Size: " << mesh.Primitives.size() << "\n";
 			for (int i = 0; i < mesh.Primitives.size(); i++)
 			{
@@ -525,20 +664,26 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 				}
 				m_commandList->IASetIndexBuffer(&meshPrimitive.IndexBufferView);
 
-				m_commandList->SetDescriptorHeaps(1, nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps[i].GetAddressOf());
+				m_commandList->SetDescriptorHeaps(1, meshPrimitive.PrimitiveShaderVisibleDescriptorHeap.GetAddressOf());
 
-				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps[i]->GetGPUDescriptorHandleForHeapStart();
+				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = meshPrimitive.PrimitiveShaderVisibleDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
 				m_commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
+
+				descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 2; // 2 since there are 2 CBVs
+				m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
 
 				if (meshPrimitive.Textures.size() > 0)
 				{
-					descriptorHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-					m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
+					descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
+					m_commandList->SetGraphicsRootDescriptorTable(2, descriptorHandle);
 				}
 				PixEndEventCustom();
 
 				PixBeginEventCustom(PIX_COLOR(0, 0, 255), "DrawIndexedInstance");
-				m_commandList->DrawIndexedInstanced(meshPrimitive.NumIndices, 1, 0, 0, 0);
+				m_commandList->DrawIndexedInstanced(
+					meshPrimitive.NumIndices,
+					model.WorldRootTransformBuffersAllInstances.size(),
+					0, 0, 0);
 				PixEndEventCustom();
 
 				if (m_benchmarker)
@@ -548,6 +693,7 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 			}
 		}
 	}
+
 	PixBeginEventCustom(PIX_COLOR(255, 0, 255), "Transition Resource barrier to Present");
 	// change resource state back to present state for rendering
 	D3D12_RESOURCE_BARRIER barrier2 = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -585,8 +731,46 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	return true;
 }
 
+bool RenderingEngineD3D12::UploadSceneData(Scene& scene)
+{
+	// The only thing moving is the camera currently, so we only need to update the vp matrix
+	Camera& camera = scene.GetCamera();
+	CHECK_FAIL(UploadBuffer(camera.VPMatrixResource.Get(), reinterpret_cast<byte*>(camera.GetVPMatrixBuffer().data()), MATRIX4X4_NUMELEMENTS * sizeof(float)), "Failed to UploadBuffer for scene's VP Matrix");
+
+	/*std::vector<Model>& models = scene.GetModels();
+	for (Model& model : models)
+	{
+		std::vector<Node>& nodes = model.GetNodesModelSpace();
+		std::vector<Mesh>& meshes = model.GetMeshes();
+
+		for (Mesh& mesh : meshes)
+		{
+			Node& nodeWithMesh = nodes[mesh.NodeIndex];
+			if (nodeWithMesh.MeshIndex == -1) { continue; }
+
+			std::vector<MeshPrimitive>& meshPrimitives = mesh.Primitives;
+			for (MeshPrimitive& meshPrimitive : meshPrimitives)
+			{
+				if (meshPrimitive.MeshPrimitiveModelSpaceTransformBufferResource.Get() == NULL)
+				{
+
+
+				}
+			}
+		}
+	}*/
+
+	return true;
+}
+
 bool RenderingEngineD3D12::Render(Scene& scene)
 {
+	if (scene.state == Scene::READY) // this is to get the updated scene and render the new scene accordingly
+	{
+		ResetSceneForInstances(scene);
+		scene.state = Scene::RUNNING;
+	}
+
 	if (scene.state == Scene::RESETTING)
 	{
 		WaitForPreviousFrame();
@@ -602,26 +786,7 @@ bool RenderingEngineD3D12::Render(Scene& scene)
 		return true;
 	}
 
-	std::vector<ModelInstance>& objects = scene.GetObjects();
-	for (ModelInstance& object : objects)
-	{
-		std::vector<WorldNode>& objectNodes = object.GetNodes();
-
-		for (UINT nodeIndex = 0; nodeIndex < objectNodes.size(); nodeIndex++)
-		{
-			WorldNode& nodeWithMesh = objectNodes[nodeIndex];
-			if (nodeWithMesh.MeshIndex == -1) { continue; }
-
-			if (nodeWithMesh.WVPMatrixGPUResource.Get() == NULL)
-			{
-				// Aligning buffer to 256 bytes as it is refrenced by a CBV
-				CHECK_FAIL(CreateBufferResource(nodeWithMesh.WVPMatrixGPUResource, ~255 & (255 + nodeWithMesh.WVPMatrixVector.size() * sizeof(float))));
-				CHECK_FAIL(SetShaderVisibleDescriptors(object, nodeWithMesh));
-			}
-
-			CHECK_FAIL(UploadBuffer(nodeWithMesh.WVPMatrixGPUResource.Get(), reinterpret_cast<byte*>(nodeWithMesh.WVPMatrixVector.data()), nodeWithMesh.WVPMatrixVector.size() * sizeof(float)));
-		}
-	}
+	CHECK_FAIL(UploadSceneData(scene), "Failed to upload Scene data");
 
 	HRESULT hr = S_OK;
 	if (UpdatePipeline(scene) == false)
@@ -728,7 +893,7 @@ bool RenderingEngineD3D12::CreateBufferResource(ComPtr<ID3D12Resource>& bufferRe
 	bufferResourceDesc.SampleDesc = { 1,0 };
 	bufferResourceDesc.Width = bufferSize;
 
-	//std::cout << "Buffer resource size: " << bufferSize << "\n";
+	//std::cout << "Buffer resource size: " << bufferSizeBytes << "\n";
 
 	//D3D12_HEAP_PROPERTIES bufferHeapProperties{ D3D12_HEAP_TYPE_GPU_UPLOAD };
 	CD3DX12_HEAP_PROPERTIES bufferHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -772,67 +937,6 @@ bool RenderingEngineD3D12::UploadTexture(Texture& texture, bool useWriteToSubRes
 	return true;
 }
 
-bool RenderingEngineD3D12::SetShaderVisibleDescriptors(ModelInstance& object, WorldNode& nodeWithMesh)
-{
-	HRESULT hr;
-
-	// Create the common desc for the WVP matrix
-	D3D12_CONSTANT_BUFFER_VIEW_DESC wvpMatrixCBVDesc{};
-	wvpMatrixCBVDesc.BufferLocation = nodeWithMesh.WVPMatrixGPUResource->GetGPUVirtualAddress();
-	wvpMatrixCBVDesc.SizeInBytes = 256 * (1 + static_cast<UINT>(nodeWithMesh.WVPMatrixVector.size()) / 256);
-
-	const std::vector<Mesh>& objectMeshes = object.BaseModel->GetMeshes();
-	const Mesh& mesh = objectMeshes[nodeWithMesh.MeshIndex];
-	int numMeshPrimitives = mesh.Primitives.size();
-	nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps.resize(numMeshPrimitives);
-	for (int i = 0; i < numMeshPrimitives; i++)
-	{
-		const MeshPrimitive& meshPrimitive = mesh.Primitives[i];
-
-		// Create the descriptor heap with the correct size to hold descriptors for all mesh resources -----------------------------------------
-		D3D12_DESCRIPTOR_HEAP_DESC mainSrvDescriptorHeapDesc{};
-		mainSrvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		mainSrvDescriptorHeapDesc.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size()) + 1; // +1 for mesh's WVP matrix
-		mainSrvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		hr = m_device->CreateDescriptorHeap(&mainSrvDescriptorHeapDesc, IID_PPV_ARGS(nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps[i].GetAddressOf()));
-		PROMPTFAILHR(hr, "Failed to create main descriptor heap for mesh " + std::string(mesh.Name) + " primitive at index " + std::to_string(i));
-
-		// Create the handle inside the heap (where the buffer view goes)
-		UINT descriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		int descriptorNumber = 0;
-		CD3DX12_CPU_DESCRIPTOR_HANDLE wvpMatrixCBVHandle(
-			nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart(),
-			descriptorNumber, descriptorSize); // offsets the Heapstart by the descriptorNumber*descriptorSize
-
-		// Create the CBV for each object's WVP matrix
-		m_device->CreateConstantBufferView(&wvpMatrixCBVDesc, wvpMatrixCBVHandle);
-
-		// Setup SRV for shader interaction with Resource -------------------------------------
-		D3D12_TEX2D_SRV texture2DSrvMips{};
-		texture2DSrvMips.MipLevels = 1;
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC textureSrvDesc{};
-		textureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		textureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		textureSrvDesc.Texture2D = texture2DSrvMips;
-		textureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-
-		for (const Texture& texture : meshPrimitive.Textures)
-		{
-			descriptorNumber++;
-			CD3DX12_CPU_DESCRIPTOR_HANDLE textureSRVHandle(
-				nodeWithMesh.PrimitiveShaderVisibleDescriptorHeaps[i]->GetCPUDescriptorHandleForHeapStart(),
-				descriptorNumber, descriptorSize);
-
-			m_device->CreateShaderResourceView(
-				texture.GPUResource.Get(),
-				&textureSrvDesc,
-				textureSRVHandle
-			);
-		}
-	}
-	return true;
-}
 
 RenderingEngineD3D12::RenderingEngineD3D12(RenderWindow& renderWindow, std::shared_ptr<Benchmarker> benchmarker, GraphicsAPI graphicsAPI)
 	: m_renderWindow(renderWindow), m_benchmarker(benchmarker), m_graphicsAPI(graphicsAPI)
@@ -877,10 +981,10 @@ bool RenderingEngineD3D12::Shutdown()
 	//}
 	// The command list should no longer retain recorded state.
 
-	// Delete application-owned objects while the m_device still exists.
-	/*for (ModelInstance* object : m_objects)
+	// Delete application-owned models while the m_device still exists.
+	/*for (ModelInstance* model : m_objects)
 	{
-		delete object;
+		delete model;
 	}
 	m_objects.clear();
 

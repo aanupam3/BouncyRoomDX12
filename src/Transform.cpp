@@ -4,6 +4,7 @@
 void Transform::SetAndExtractFromTransformationMatrix(DirectX::XMMATRIX transformationMatrix)
 {
 	m_transformationMatrix = transformationMatrix;
+	m_transformMatrixArray = Utils::xmMatrixToArray(m_transformationMatrix);
 
 	DirectX::XMVECTOR outTranslationVector;
 	DirectX::XMVECTOR outRotationVectorQuat;
@@ -53,6 +54,7 @@ void Transform::SetPosition(float x, float y, float z)
 	m_translationMatrix = DirectX::XMMatrixTranslationFromVector(TranslationVector);
 
 	m_transformationMatrix = m_scalingMatrix * m_rotationMatrix * m_translationMatrix;
+	m_transformMatrixArray = Utils::xmMatrixToArray(m_transformationMatrix);
 }
 
 void Transform::SetRotationDegrees(float xDegrees, float yDegrees, float zDegrees)
@@ -71,6 +73,7 @@ void Transform::SetRotationRadians(float x, float y, float z)
 	m_rotationMatrix = DirectX::XMMatrixRotationRollPitchYawFromVector(RotationVector);
 
 	m_transformationMatrix = m_scalingMatrix * m_rotationMatrix * m_translationMatrix;
+	m_transformMatrixArray = Utils::xmMatrixToArray(m_transformationMatrix);
 }
 
 void Transform::SetScale(float x, float y, float z)
@@ -80,6 +83,7 @@ void Transform::SetScale(float x, float y, float z)
 	m_scalingMatrix = DirectX::XMMatrixScalingFromVector(ScalingVector);
 
 	m_transformationMatrix = m_scalingMatrix * m_rotationMatrix * m_translationMatrix;
+	m_transformMatrixArray = Utils::xmMatrixToArray(m_transformationMatrix);
 }
 
 void Transform::SetScale(float scale)

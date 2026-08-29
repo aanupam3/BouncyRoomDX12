@@ -43,7 +43,6 @@ bool BenchmarkingApplication::Update(Scene& scene)
 	if (scene.state == Scene::READY)
 	{
 		SetScene(scene, CalculateNewNumObjects());
-		scene.state = Scene::RUNNING;
 
 		std::cout << "\n--------- Running Updated Scene ------------\n";
 	}
@@ -60,7 +59,7 @@ bool BenchmarkingApplication::Update(Scene& scene)
 
 	if (m_benchmarker->CurrentMeasurementFrameCount >= m_benchmarker->TotalMeasurementFramesCount)
 	{
-		std::cout << "Number of objects: " << m_currentNumberOfBalls << "\n";
+		std::cout << "- Number of objects: " << m_currentNumberOfBalls << "\n";
 		m_benchmarker->Report();
 
 		// If all benchmark passes (including UpperBound - LowerBound < 1%) then we can stop
@@ -144,20 +143,18 @@ void BenchmarkingApplication::SetScene(Scene& scene, int numBalls)
 	m_cameraRevolutionTheta = 0;
 
 	std::vector<Model>& models = scene.GetModels();
-	std::vector<ModelInstance>& objects = scene.GetObjects();
-	objects.clear();
-	objects.reserve(numBalls + 1);
 
 	// Room
-	DirectX::XMFLOAT3 position{ 0, 0, 0 };
-	DirectX::XMFLOAT3 rotation{ 0, 0, 0 };
-	DirectX::XMFLOAT3 scale{ 1, 1, 1 };
+	Transform roomModelInstanceTransform{};
 	Model& roomModel = models[0]; // hardcording for now
-	objects.emplace_back(roomModel, Transform(position, rotation, scale));
+	roomModel.WorldRootTransformBuffersAllInstances.clear();
+	scene.AddModelInstance(roomModel, roomModelInstanceTransform);
 
 	// Balls
 	Model& ballModel = models[1]; // hardcoding for now
-	objects.emplace_back(ballModel, Transform(position, rotation));
+	ballModel.WorldRootTransformBuffersAllInstances.clear();
+
+	std::vector<std::array<float, MATRIX4X4_NUMELEMENTS>> ballTransformBuffers{ static_cast<UINT>(numBalls) };
 	for (int i = 0; i < numBalls; i++)
 	{
 		float maxX = 40;
@@ -173,10 +170,12 @@ void BenchmarkingApplication::SetScene(Scene& scene, int numBalls)
 		float rotYRadians = 0;// std::rand();
 		DirectX::XMFLOAT3 rotation{ 0, rotYRadians, 0 };
 
+		Transform ballTransform{ position, rotation };
 		/*std::cout << "Creating object at: (" << posX << ", " << posY << ", " << posZ << ")\n";
 		std::cout << "Rotation: (" << rotation.x << ", " << rotation.y << ", " << rotation.z << ")\n";*/
-		objects.emplace_back(ballModel, Transform(position, rotation));
+		ballTransformBuffers[i] = ballTransform.GetTransformMatrixArray();
 	}
+	scene.AddModelInstances(ballModel, ballTransformBuffers);
 }
 
 void BenchmarkingApplication::MoveCamera(Camera& sceneCamera)

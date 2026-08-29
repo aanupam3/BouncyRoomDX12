@@ -12,7 +12,7 @@ struct PS_OUTPUT
     float4 target : SV_TARGET;
 };
 
-Texture2D baseTexture : register(t0);
+Texture2D baseTexture : register(t1);
 SamplerState textureSampler : s0;
 
 PS_OUTPUT main(PS_INPUT input)

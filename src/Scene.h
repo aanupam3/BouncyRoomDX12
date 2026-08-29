@@ -1,6 +1,5 @@
 #include "Camera.h"
 #include "Model.h"
-#include "ModelInstance.h"
 
 struct RenderWindow
 {
@@ -20,8 +19,9 @@ public:
 	~Scene();
 
 	//void AddModel(Model model);
-	void AddObject(ModelInstance object);
-	void RemoveObject(ModelInstance& object);
+	void AddModelInstance(Model& model, Transform& transform);
+	void AddModelInstances(Model& model, std::vector<std::array<float, MATRIX4X4_NUMELEMENTS>>& transformBuffers);
+	//void RemoveModelInstance(ModelInstance& object);
 	void ClearScene();
 
 	enum SceneState
@@ -33,13 +33,12 @@ public:
 
 	// Getters
 	Camera& GetCamera() { return m_camera; }
-	ModelInstance& GetObjectFromId(std::string id) {};
-	std::vector<ModelInstance>& GetObjects() { return m_objects; }
+	//ModelInstance& GetObjectFromId(std::string id) {};
+	//std::vector<ModelInstance>& GetObjects() { return m_objects; }
 	std::vector<Model>& GetModels() { return m_models; }
 
 private:
 	std::vector<Model> m_models{};
-	std::vector<ModelInstance> m_objects{};
 	Camera m_camera;
 	const RenderWindow& m_renderWindow;
 };

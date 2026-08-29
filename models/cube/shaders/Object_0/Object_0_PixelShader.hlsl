@@ -9,7 +9,7 @@ struct PS_OUTPUT
     float4 target : SV_TARGET;
 };
 
-Texture2D crateTexture : t0;
+Texture2D crateTexture : t1;
 SamplerState crateTextureSampler : s0;
 
 PS_OUTPUT main(PS_INPUT input)
