@@ -17,8 +17,8 @@ Once loaded you should see the terminal and a separate render window. The termin
 ### Latest Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 9625
 - **Bottleneck**: CPU bound (Reason coming soon)
-- Commit ID: 
-- Commit Name: [STRATEGY][CLEANUP] Streamlined pipeline and root signature creation
+- Commit ID: 3a1a08d8ab95553e654f80b8911c319d0a91dada
+- Commit Name: [STRATEGY] Instancing Refactor
 
 ### Previous Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 712
