@@ -54,7 +54,7 @@ Once loaded you should see the terminal and a separate render window. The termin
 # Scene
 - **Resolution**: 1920 x 1080
 - **Camera**: Perspective, fixed path revolution
-- **Lights**: NONE
+- **Lights**: Directional, stationary
 - **Shadows**: NONE
 - **Physics**: NONE
 - **VSync**: OFF
