@@ -15,9 +15,9 @@ Once loaded you should see the terminal and a separate render window. The termin
 # Recent Performance
 
 ### Latest Relevant Commit
-- **Max Balls Rendered at 60 FPS**: 9200  (down from previous)
+- **Max Balls Rendered at 60 FPS**: 9200  (down from previous due to increase in Scene complexity with lighting)
 - **Bottleneck**: CPU bound (Reason coming soon)
-- Commit ID: 
+- Commit ID: f0feff297b08f06cf76f0bbf5a972775ce01aa99
 - Commit Name: [SCENE] Basic Directional Lighting
 
 ### Previous Relevant Commit
