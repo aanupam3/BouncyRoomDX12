@@ -40,5 +40,6 @@ VS_OUTPUT main(VS_INPUT input)
     
     output.pos = mul(float4(input.pos, 1.0f), wvp);
     output.uv = input.uv;
+    output.normal = input.normal;
     return output;
 }

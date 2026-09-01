@@ -15,19 +15,31 @@ Once loaded you should see the terminal and a separate render window. The termin
 # Recent Performance
 
 ### Latest Relevant Commit
+- **Max Balls Rendered at 60 FPS**: 9200  (down from previous)
+- **Bottleneck**: CPU bound (Reason coming soon)
+- Commit ID: 
+- Commit Name: [SCENE] Basic Directional Lighting
+
+### Previous Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 9625
 - **Bottleneck**: CPU bound (Reason coming soon)
 - Commit ID: 3a1a08d8ab95553e654f80b8911c319d0a91dada
 - Commit Name: [STRATEGY] Instancing Refactor
 
-### Previous Relevant Commit
-- **Max Balls Rendered at 60 FPS**: 712
-- **Bottleneck**: CPU bound (Main Culprit is repeated calls to DrawIndexedInstance and IASetVertexBuffers for each mesh primitive, due to a lack of instancing)
-- Commit ID: fc75cbc047654c758f63cb5fff36398c15dd4eed
-- Commit Name: [STRATEGY][CLEANUP] Streamlined pipeline and root signature creation
-
 # Current Metrics when Rendering Max Balls at 60fps
-### Latet Relevant Commit
+### Latest Relevant Commit
+- Number of objects: 9200
+- Total frames measured: 300
+- Median Draw Calls: 15
+- Median CPU Time: 17ms
+- P95 CPU Time: 17ms
+- P99 CPU Time: 18ms
+- Median GPU Time: 14ms
+- P95 GPU Time: 15ms
+- P99 GPU Time: 15ms
+- Memory: 480 MB RAM
+
+### Previous Commit
 - Number of objects: 9625
 - Total frames measured: 300
 - Median Draw Calls: 15
@@ -38,18 +50,6 @@ Once loaded you should see the terminal and a separate render window. The termin
 - P95 GPU Time: 15ms
 - P99 GPU Time: 15ms
 - Memory: 460 MB RAM
-
-### Previous Commit
-- Number of objects: 712
-- Total frames measured: 300
-- Median Draw Calls: 1439
-- Median CPU Time: 16ms
-- P95 CPU Time: 24ms
-- P99 CPU Time: 26ms
-- Median GPU Time: 13.9172ms
-- P95 GPU Time: 19.8149ms
-- P99 GPU Time: 22.4696ms
-- Memory: 612 MB RAM
 
 # Scene
 - **Resolution**: 1920 x 1080
@@ -168,6 +168,7 @@ Add more metrics:
 Currently, ModelInstances only differ with each other with transforms, not other stuff (textures etc)  
 Add const and constexpr where needed
 Make models into an unordered_map for easy referencing of models
+Change descriptor tables to descriptors where they are not needed to remove unnecessary extra indirection
 
 ## Capabilities
 Move all D3D12 specifics into a custom ModelD3D12 object, making the regular Model free on DX12 specifics so that we can swap renderers in the future

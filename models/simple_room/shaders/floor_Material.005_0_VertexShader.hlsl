@@ -44,5 +44,8 @@ VS_OUTPUT main(VS_INPUT input)
     
     output.pos = mul(float4(input.pos, 1.0f), wvp);
     output.uv = input.uv;
+    output.uv1 = input.uv1;
+    output.normal = input.normal;
+    output.tangent = input.tangent;
     return output;
 }

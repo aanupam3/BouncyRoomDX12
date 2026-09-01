@@ -272,7 +272,7 @@
             "TEXCOORD_0": 3
           },
           "indices": 4,
-          "material": 1,
+          "material": 0,
           "mode": 4
         }
       ]

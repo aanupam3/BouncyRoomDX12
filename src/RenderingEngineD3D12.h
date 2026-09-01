@@ -28,7 +28,7 @@ public:
 	bool Render(Scene&) override;
 	bool Shutdown() override;
 
-	size_t DescriptorHandleIncrementSizeCBVSRVUAV;
+	size_t DescriptorHandleIncrementSizeCBVSRVUAV{};
 
 	GraphicsAPI GetRenderingEngineType() { return m_graphicsAPI; };
 
@@ -46,7 +46,6 @@ private:
 	bool ResetSceneForInstances(Scene& scene);
 	bool CreateFactory();
 	bool CreateFences();
-	bool CreateRootSignature(const MeshPrimitive& meshPrimitive);
 	bool CreateRTVAndDescriptorHeap();
 	bool CreateSwapChain();
 	bool CreateTextureResource(Texture& texture);

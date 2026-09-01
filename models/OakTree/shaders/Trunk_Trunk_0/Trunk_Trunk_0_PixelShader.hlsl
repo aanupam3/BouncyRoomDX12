@@ -16,7 +16,7 @@ struct PS_OUTPUT
 Texture2D tex0 : register(t1);
 Texture2D tex1 : register(t2);
 Texture2D tex2 : register(t3);
-Texture2D texBase : register(t4);
+Texture2D texBase : register(t5);
 SamplerState textureSampler : s0;
 
 PS_OUTPUT main(PS_INPUT input)

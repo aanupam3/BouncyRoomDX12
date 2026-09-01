@@ -33,9 +33,11 @@ public:
 
 	// Getters
 	Camera& GetCamera() { return m_camera; }
-	//ModelInstance& GetObjectFromId(std::string id) {};
-	//std::vector<ModelInstance>& GetObjects() { return m_objects; }
 	std::vector<Model>& GetModels() { return m_models; }
+
+
+	DirectX::XMFLOAT3 LightDirection{};
+	//ComPtr<ID3D12Resource> LightDirectionResource{};
 
 private:
 	std::vector<Model> m_models{};

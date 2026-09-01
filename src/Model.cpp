@@ -89,7 +89,7 @@ void Model::SetMeshes()
 		UINT numMeshPrimitives = m_modelJson->meshes[meshIndex].primitives.size();
 		mesh.Primitives.resize(numMeshPrimitives);
 
-		SetMeshTextures(meshIndex, mesh);
+		SetMeshTexturesAndColors(meshIndex, mesh);
 		SetMeshShaders(mesh);
 	}
 }
@@ -198,7 +198,8 @@ void Model::SetMeshIndexBufferView(int meshIndex)
 	}
 }
 
-void Model::SetMeshTextures(int meshIndex, Mesh& mesh)
+
+void Model::SetMeshTexturesAndColors(int meshIndex, Mesh& mesh)
 {
 	for (int i = 0; i < mesh.Primitives.size(); i++)
 	{
@@ -206,7 +207,14 @@ void Model::SetMeshTextures(int meshIndex, Mesh& mesh)
 		int materialIndex = m_modelJson->meshes[meshIndex].primitives[i].material;
 		ModelGLTF::Material texMaterial = m_modelJson->materials[materialIndex];
 
-		std::vector<int> texIndices{};
+		// Colors
+		std::vector<float>& baseColorFactor = texMaterial.pbrMetallicRoughness.baseColorFactor;
+		meshPrimitive.ColorFactorsData.baseColorFactor = { baseColorFactor[0], baseColorFactor[1], baseColorFactor[2], baseColorFactor[3] };
+		meshPrimitive.ColorFactorsData.metallicFactor = texMaterial.pbrMetallicRoughness.metallicFactor;
+		meshPrimitive.ColorFactorsData.roughnessFactor = texMaterial.pbrMetallicRoughness.roughnessFactor;
+
+		// Textures
+		std::vector<TexIndexAndType> texIndicesAndNames{};
 
 		int normalTexIndex = texMaterial.normalTexture.index;
 		int occlusionTexIndex = texMaterial.occlusionTexture.index;
@@ -214,15 +222,15 @@ void Model::SetMeshTextures(int meshIndex, Mesh& mesh)
 		int metallicRoughnessTexIndex = texMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index;
 		int pbrBaseColorTexIndex = texMaterial.pbrMetallicRoughness.baseColorTexture.index;
 
-		if (normalTexIndex >= 0) { texIndices.push_back(normalTexIndex); }
-		if (occlusionTexIndex >= 0) { texIndices.push_back(occlusionTexIndex); }
-		if (emissiveTexIndex >= 0) { texIndices.push_back(emissiveTexIndex); }
-		if (metallicRoughnessTexIndex >= 0) { texIndices.push_back(metallicRoughnessTexIndex); }
-		if (pbrBaseColorTexIndex >= 0) { texIndices.push_back(pbrBaseColorTexIndex); }
+		if (normalTexIndex >= 0) { texIndicesAndNames.push_back({ normalTexIndex, NORMAL }); }
+		if (occlusionTexIndex >= 0) { texIndicesAndNames.push_back({ occlusionTexIndex, OCCLUSION }); }
+		if (emissiveTexIndex >= 0) { texIndicesAndNames.push_back({ emissiveTexIndex, EMISSIVE }); }
+		if (metallicRoughnessTexIndex >= 0) { texIndicesAndNames.push_back({ metallicRoughnessTexIndex, METALLIC_ROUGHNESS }); }
+		if (pbrBaseColorTexIndex >= 0) { texIndicesAndNames.push_back({ pbrBaseColorTexIndex, PBR_BASE }); }
 
-		for (int& texIndex : texIndices)
+		for (TexIndexAndType& texIndexAndName : texIndicesAndNames)
 		{
-			ModelGLTF::Texture texMetaData = m_modelJson->textures[texIndex];
+			ModelGLTF::Texture texMetaData = m_modelJson->textures[texIndexAndName.Index];
 
 			int imgIndex = texMetaData.source;
 			ModelGLTF::Image texImage = m_modelJson->images[imgIndex];
@@ -242,6 +250,7 @@ void Model::SetMeshTextures(int meshIndex, Mesh& mesh)
 			texture.TexSizeBytes = texture.Width * texture.Height * texture.NumChannels;
 			texture.TexBox = { 0, 0, 0, texture.Width, texture.Height, 1 };
 			texture.Path = texPath;
+			texture.Type = texIndexAndName.TextureType;
 
 			//std::cout << "\nTexture dimensions: (" << texture->Width << "," << texture->Height << "), numChannels:" << texture->NumChannels << "\n";
 			meshPrimitive.Textures.push_back(texture);
@@ -274,49 +283,6 @@ void Model::SetMeshShaders(Mesh& mesh)
 	}
 }
 
-//
-//void Model::SetInstances(int numInstances)
-//{
-//	WorldRootTransformBuffersAllInstances.resize(numInstances);
-//	WVPMatrixVectorAllInstances.resize(numInstances);
-//
-//	for (UINT nodeIndex = 0; nodeIndex < m_nodesWorldSpace.size(); nodeIndex++)
-//	{
-//		Node& nodeWithMesh = objectNodes[nodeIndex];
-//		if (nodeWithMesh.MeshIndex == -1) { continue; }
-//
-//	}
-//}
-//
-//void Model::UpdateInstanceWorldTransform(Transform& transform, UINT index)
-//{
-//	//std::vector<Node>& baseModelNodes = GetNodesModelSpace(); // base model nodes are in local space, and will now be updated in the instance to world space
-//	//int numNodes = baseModelNodes.size();
-//
-//	// Update to world level based on input transform
-//	/*const DirectX::XMMATRIX& worldTransformationMatrix = transform.GetTransformationMatrix();
-//	for (int i = 0; i < m_nodesModelSpace.size(); i++)
-//	{
-//		Node& node = m_nodesModelSpace[i];
-//		WorldRootTransformBuffersAllInstances[index] = DirectX::XMMatrixMultiply(node.NodeTransform.GetTransformationMatrix(), worldTransformationMatrix)
-//	}*/
-//
-//	//for (int nodeIndex = 0; nodeIndex < numNodes; nodeIndex++)
-//	//{
-//	//	Node& baseNode = baseModelNodes[nodeIndex];
-//	//	Node& worldNode = m_nodesWorldSpace[nodeIndex];
-//	//	worldNode.ChildrenNodeIndexes = baseNode.ChildrenNodeIndexes;
-//	//	worldNode.ParentNodeIndex = baseNode.ParentNodeIndex;
-//	//	worldNode.MeshIndex = baseNode.MeshIndex;
-//
-//	//	DirectX::XMMATRIX instanceNodeLocalTransformationMatrix = baseNode.NodeTransform.GetTransformationMatrix();
-//	//	worldNode.NodeTransform.SetAndExtractFromTransformationMatrix(instanceNodeLocalTransformationMatrix);
-//	//}
-//
-//
-//}
-
-
 bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Device>& device)
 {
 	std::vector<D3D12_ROOT_PARAMETER> rootParams{};
@@ -325,13 +291,16 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 	// Descriptor Table 1:
 	//	Descriptor at b0: VPMatrix (CBV)
 	//	Descriptor at b1: MeshPrimitiveModelSpaceTransformBuffer(CBV)
+	//  Descriptor at b2: MeshPrimitiveColorFactors(CBV)
 	// Descriptor Table 2:
 	//	t0: WorldRootTransformBufferAllInstances(SRV)
 	// Descriptor Table 3: 
 	//	t1: Texture 1 (SRV)
 	//	t2: Texture 2 (SRV)
 	//  ...
-	rootParams.reserve(3); // 3 tables
+	// Descriptor Table 4:
+	//	b3: Light Direction (Constants)
+	rootParams.reserve(4); // 3 tables + 1 lightDirection constant
 
 	// ------------- Table 1: CBVs -----------------------------------------------
 	// First table contains both CBVs
@@ -346,12 +315,18 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 	D3D12_DESCRIPTOR_RANGE rootMeshPrimitiveModelSpaceTransformDescRange{};
 	rootMeshPrimitiveModelSpaceTransformDescRange.BaseShaderRegister = 1; //b1
 	rootMeshPrimitiveModelSpaceTransformDescRange.NumDescriptors = 1;
-	rootMeshPrimitiveModelSpaceTransformDescRange.OffsetInDescriptorsFromTableStart = 1;
+	rootMeshPrimitiveModelSpaceTransformDescRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	rootMeshPrimitiveModelSpaceTransformDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 
-	constexpr UINT numCBVDescriptorRanges = 2;
+	D3D12_DESCRIPTOR_RANGE rootMeshPrimitiveColorFactorsDescRange{};
+	rootMeshPrimitiveColorFactorsDescRange.BaseShaderRegister = 2; //b2
+	rootMeshPrimitiveColorFactorsDescRange.NumDescriptors = 1;
+	rootMeshPrimitiveColorFactorsDescRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	rootMeshPrimitiveColorFactorsDescRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+
+	constexpr UINT numCBVDescriptorRanges = 3;
 	rootCBVsDescTable.NumDescriptorRanges = numCBVDescriptorRanges;
-	std::array<D3D12_DESCRIPTOR_RANGE, numCBVDescriptorRanges> cbvDescriptorRanges{ rootVPMatrixBufferDescRange, rootMeshPrimitiveModelSpaceTransformDescRange };
+	std::array<D3D12_DESCRIPTOR_RANGE, numCBVDescriptorRanges> cbvDescriptorRanges{ rootVPMatrixBufferDescRange, rootMeshPrimitiveModelSpaceTransformDescRange, rootMeshPrimitiveColorFactorsDescRange };
 	rootCBVsDescTable.pDescriptorRanges = cbvDescriptorRanges.data();
 
 	D3D12_ROOT_PARAMETER rootParamCBVs{};
@@ -380,17 +355,45 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 	rootParams.emplace_back(rootParamAllInstancesSRV);
 
 	// ------------- Table 3: Textures SRV -----------------------------------------------------------
-	if (meshPrimitive.Textures.size() > 0)
+
+	std::vector<Texture>& meshTextures = meshPrimitive.Textures;
+	UINT numTextures = static_cast<UINT>(meshTextures.size());
+	std::vector<D3D12_DESCRIPTOR_RANGE> rootTextSrvDescriptorRanges{ numTextures };
+	if (numTextures > 0)
 	{
-		D3D12_DESCRIPTOR_RANGE rootTextSrvDescriptorRange{};
-		rootTextSrvDescriptorRange.BaseShaderRegister = 1; //t1
-		rootTextSrvDescriptorRange.NumDescriptors = static_cast<UINT>(meshPrimitive.Textures.size());
-		rootTextSrvDescriptorRange.OffsetInDescriptorsFromTableStart = 0;//D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-		rootTextSrvDescriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		for (int i = 0; i < numTextures; i++)
+		{
+			Texture& meshTexture = meshTextures[i];
+
+			switch (meshTexture.Type)
+			{
+			case NORMAL:
+				rootTextSrvDescriptorRanges[i].BaseShaderRegister = 1; //t1
+				break;
+			case OCCLUSION:
+				rootTextSrvDescriptorRanges[i].BaseShaderRegister = 2;
+				break;
+			case EMISSIVE:
+				rootTextSrvDescriptorRanges[i].BaseShaderRegister = 3;
+				break;
+			case METALLIC_ROUGHNESS:
+				rootTextSrvDescriptorRanges[i].BaseShaderRegister = 4;
+				break;
+			case PBR_BASE:
+				rootTextSrvDescriptorRanges[i].BaseShaderRegister = 5;
+				break;
+			default:
+				rootTextSrvDescriptorRanges[i].BaseShaderRegister = 1;
+			}
+
+			rootTextSrvDescriptorRanges[i].NumDescriptors = 1;
+			rootTextSrvDescriptorRanges[i].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+			rootTextSrvDescriptorRanges[i].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		}
 
 		D3D12_ROOT_DESCRIPTOR_TABLE rootTexSrvDescriptorTable{};
-		rootTexSrvDescriptorTable.NumDescriptorRanges = 1;
-		rootTexSrvDescriptorTable.pDescriptorRanges = &rootTextSrvDescriptorRange;
+		rootTexSrvDescriptorTable.NumDescriptorRanges = numTextures;
+		rootTexSrvDescriptorTable.pDescriptorRanges = rootTextSrvDescriptorRanges.data();
 
 		D3D12_ROOT_PARAMETER rootParamTextures{};
 		rootParamTextures.DescriptorTable = rootTexSrvDescriptorTable;
@@ -400,6 +403,23 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 		rootParams.emplace_back(rootParamTextures);
 	}
 
+
+	// ---------------- Constants -----------------------------
+
+	D3D12_ROOT_CONSTANTS rootConstantsLightDirection{};
+	rootConstantsLightDirection.Num32BitValues = 3;
+	rootConstantsLightDirection.ShaderRegister = 3; //b3
+	rootConstantsLightDirection.RegisterSpace = 0;
+
+	D3D12_ROOT_PARAMETER rootParamLightDirection{};
+	rootParamLightDirection.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	rootParamLightDirection.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParamLightDirection.Constants = rootConstantsLightDirection;
+
+	rootParams.emplace_back(rootParamLightDirection);
+
+
+	// ------------------ Static sampler --------------------------
 	D3D12_STATIC_SAMPLER_DESC textureSampler{}; // needs to be accessible rootSignatureDesc so has to be in the same scope as it
 
 	//D3D12_DESCRIPTOR_RANGE rootTextSamplerDescriptorRange{};
@@ -435,7 +455,13 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 	}
 
 	ComPtr<ID3DBlob> signature{};
-	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.GetAddressOf(), nullptr);
+	ComPtr<ID3DBlob> errorBlob{};
+
+	HRESULT hr = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, signature.GetAddressOf(), errorBlob.GetAddressOf());
+	if (FAILED(hr) && errorBlob)
+	{
+		std::cout << static_cast<const char*>(errorBlob->GetBufferPointer()) << "\n";
+	}
 	PROMPTFAILHR(hr, "Failed to assign root signature blob! ");
 	hr = device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(meshPrimitive.RootSignature.GetAddressOf()));
 	PROMPTFAILHR(hr, "Failed to create root signature! ");

@@ -20,11 +20,26 @@ struct ModelBinData {
 	}
 };
 
+enum TexType
+{
+	NORMAL,
+	OCCLUSION,
+	EMISSIVE,
+	METALLIC_ROUGHNESS,
+	PBR_BASE
+};
+
+struct TexIndexAndType
+{
+	int Index{};
+	TexType TextureType{};
+};
+
 struct Texture
 {
 	UINT TexDataOffset{};
 	UINT TexSizeBytes{};
-	std::string Name;
+	TexType Type;
 	UINT Width{};
 	UINT Height{};
 	UINT NumChannels{};
@@ -50,6 +65,13 @@ struct Shader
 	size_t BinSize{ 0 };
 };
 
+struct ColorFactors
+{
+	DirectX::XMFLOAT4 baseColorFactor{ 1, 1, 1, 1 };
+	float metallicFactor{};
+	float roughnessFactor{};
+};
+
 struct MeshPrimitive
 {
 	std::vector<std::string> AttributeNames{};
@@ -60,6 +82,9 @@ struct MeshPrimitive
 
 	std::vector<Texture> Textures{};
 	std::vector<Shader> Shaders{};
+
+	ColorFactors ColorFactorsData{};
+	ComPtr<ID3D12Resource> ColorFactorsResource{};
 
 	ComPtr<ID3D12PipelineState> PipelineStateObject{};
 	ComPtr<ID3D12RootSignature> RootSignature{};
@@ -113,7 +138,7 @@ private:
 	void SetNodes();
 	void SetMeshes();
 
-	void SetMeshTextures(int meshIndex, Mesh& mesh);
+	void SetMeshTexturesAndColors(int meshIndex, Mesh& mesh);
 	void SetMeshShaders(Mesh& mesh);
 public:
 	Model(std::string modelBasePath, std::string name = "");

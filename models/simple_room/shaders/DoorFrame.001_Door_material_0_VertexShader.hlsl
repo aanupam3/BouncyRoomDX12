@@ -37,5 +37,6 @@ VS_OUTPUT main(VS_INPUT input)
     float4x4 wvp = mul(modelToWorldMatrix, vpMatrixBuffer);
     
     output.pos = mul(float4(input.pos, 1.0f), wvp);
+    output.normal = input.normal;
     return output;
 }

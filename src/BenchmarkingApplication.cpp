@@ -21,6 +21,8 @@ bool BenchmarkingApplication::Init(Scene& scene)
 	const std::string roomBasePath{ "./models/simple_room/" };
 	const std::string objectBasePath{ "./models/tennis_ball/" };
 
+	scene.LightDirection = { 0, -1, 1 };
+
 	std::vector<Model>& models = scene.GetModels();
 	models.clear();
 	models.reserve(2);

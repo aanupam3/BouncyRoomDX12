@@ -23,6 +23,8 @@ bool DefaultApplication::Init(Scene& scene)
 	models.emplace_back(roomBasePath, "SimpleRoom");
 	models.emplace_back(objectBasePath, "TennisBall");
 
+	scene.LightDirection = { 0, -1, 1 };
+
 	// Room
 	Transform roomModelInstanceTransform{};
 	Model& roomModel = models[0]; // hardcording for now

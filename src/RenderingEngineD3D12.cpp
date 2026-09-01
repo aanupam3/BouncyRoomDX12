@@ -69,9 +69,9 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 	// Uploading all resources for base models. These are shared by each model of a given model
 	Camera& camera = scene.GetCamera();
 	CHECK_FAIL(CreateBufferResource(camera.VPMatrixResource, ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float))), "Failed to create VP Matrix Resource");
-	CHECK_FAIL(UploadBuffer(camera.VPMatrixResource.Get(), reinterpret_cast<byte*> (camera.GetVPMatrixBuffer().data()), MATRIX4X4_NUMELEMENTS * sizeof(float)), "Failed to uplpoad camera VP buffer");
+	CHECK_FAIL(UploadBuffer(camera.VPMatrixResource.Get(), reinterpret_cast<byte*> (camera.GetVPMatrixBuffer().data()), MATRIX4X4_NUMELEMENTS * sizeof(float)), "Failed to uplpoad camera VP buffer")
 
-	std::vector<Model>& models = scene.GetModels();
+		std::vector<Model>& models = scene.GetModels();
 	for (Model& model : models)
 	{
 		const ModelBinData* modelBinData = model.GetBinData();
@@ -93,7 +93,7 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 			Mesh& mesh = modelMeshes[meshIndex];
 			Node& meshNode = modelNodes[mesh.NodeIndex];
 
-			//std::cout << "Setting up GPU resources for model " << model.Name << " mesh: " << mesh.Name << "\n";
+			std::cout << "Setting up GPU resources for model " << model.Name << " mesh: " << mesh.Name << "\n";
 
 			// These need the model binary's address so that the buffer view's location can be assigned
 			// that's why we set them here instead of in the Model constructor
@@ -102,6 +102,7 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 
 			for (int i = 0; i < mesh.Primitives.size(); i++)
 			{
+				std::cout << "Mesh Index: " << i << "\n";
 				MeshPrimitive& meshPrimitive = mesh.Primitives[i];
 				std::vector<Texture>& meshPrimitiveTextures = meshPrimitive.Textures;
 				// This is redundant if there are multiple mesh primitives per mesh since they would all share a common node
@@ -112,12 +113,18 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 					ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float))
 				), "Failed to Upload buffer for MeshPrimitiveModelSpaceTransformBufferResource, Model: " + model.Name + ", MeshIndex: " + std::to_string(i)); // Currently parts of a model are not moving w.r.t each other, so we assume these are constant by uploading them once in Init() 
 
+				// Upload the color factors data
+				CHECK_FAIL(CreateBufferResource(meshPrimitive.ColorFactorsResource, ALIGN_256(sizeof(ColorFactors))), "Failed to create color factors resource, Model: " + model.Name + ", MeshIndex: " + std::to_string(i));
+				CHECK_FAIL(UploadBuffer(
+					meshPrimitive.ColorFactorsResource.Get(),
+					reinterpret_cast<byte*>(&meshPrimitive.ColorFactorsData),
+					ALIGN_256(sizeof(ColorFactors))), "");
 
 				// Create Descriptor Heap -----------------------------------------------------------------
 				D3D12_DESCRIPTOR_HEAP_DESC primitiveShaderVisibleDescriptor_HeapDesc{};
 				primitiveShaderVisibleDescriptor_HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 				primitiveShaderVisibleDescriptor_HeapDesc.NodeMask = 0;
-				primitiveShaderVisibleDescriptor_HeapDesc.NumDescriptors = meshPrimitive.Textures.size() + 3; // Num of textures used by this mesh + 3 (MeshPrimitiveModelSpaceTransformBufferResource, WorldRootTransformBuffersAllInstancesResource, VPMatrixTransformBuffer 
+				primitiveShaderVisibleDescriptor_HeapDesc.NumDescriptors = meshPrimitive.Textures.size() + 4; // Num of textures used by this mesh + 4 (MeshPrimitiveModelSpaceTransformBufferResource, WorldRootTransformBuffersAllInstancesResource, VPMatrixTransformBuffer, ColorFactorsData 
 				primitiveShaderVisibleDescriptor_HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 				m_device->CreateDescriptorHeap(
 					&primitiveShaderVisibleDescriptor_HeapDesc,
@@ -137,6 +144,13 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 				modelMatrix_CBVDesc.BufferLocation = meshPrimitive.MeshPrimitiveModelSpaceTransformBufferResource.Get()->GetGPUVirtualAddress();
 				modelMatrix_CBVDesc.SizeInBytes = ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float));
 				m_device->CreateConstantBufferView(&modelMatrix_CBVDesc, descriptorHeapCPUHandle);
+
+				// Set CBV for ColorFactorsData --------------------------------------------------------------------------------------------------
+				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
+				D3D12_CONSTANT_BUFFER_VIEW_DESC colorFactorsCBVDesc{};
+				colorFactorsCBVDesc.BufferLocation = meshPrimitive.ColorFactorsResource.Get()->GetGPUVirtualAddress();
+				colorFactorsCBVDesc.SizeInBytes = ALIGN_256(sizeof(ColorFactors));
+				m_device->CreateConstantBufferView(&colorFactorsCBVDesc, descriptorHeapCPUHandle);
 
 				// SRV for WorldRootTransformBuffersAllInstances ---------------------------------------------------------------------------------------
 				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
@@ -162,8 +176,8 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 				std::vector<Texture>& textures = meshPrimitive.Textures;
 				for (Texture& texture : textures)
 				{
-					CHECK_FAIL(CreateTextureResource(texture), "Failed to CreateTextureResource, Model: " + model.Name + ", texture: " + texture.Name);
-					CHECK_FAIL(UploadTexture(texture), "Failed to UploadTexture, Model: " + model.Name + ", texture: " + texture.Name);
+					CHECK_FAIL(CreateTextureResource(texture), "Failed to CreateTextureResource, Model: " + model.Name + ", texture: " + std::to_string(texture.Type));
+					CHECK_FAIL(UploadTexture(texture), "Failed to UploadTexture, Model: " + model.Name + ", texture: " + std::to_string(texture.Type));
 
 					descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
 
@@ -233,7 +247,7 @@ bool RenderingEngineD3D12::ResetSceneForInstances(Scene& scene)
 				// Camera, ModelMatrix CBVs and Texture SRVs do not change since they are tied to the model, only the instance descriptor heap changes
 
 				// SRV for WorldRootTransformBuffersAllInstances ---------------------------------------------------------------------------------------
-				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 2;
+				descriptorHeapCPUHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 3;
 				D3D12_BUFFER_SRV worldRootTransformBuffersAllInstances_BufferSRV{};
 				worldRootTransformBuffersAllInstances_BufferSRV.FirstElement = 0;
 				worldRootTransformBuffersAllInstances_BufferSRV.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
@@ -669,14 +683,22 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = meshPrimitive.PrimitiveShaderVisibleDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
 				m_commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
 
-				descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 2; // 2 since there are 2 CBVs
+				descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 3; // since there are 3 CBVs
 				m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
 
 				if (meshPrimitive.Textures.size() > 0)
 				{
 					descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
 					m_commandList->SetGraphicsRootDescriptorTable(2, descriptorHandle);
+					m_commandList->SetGraphicsRoot32BitConstants(3, 3, &scene.LightDirection, 0);
 				}
+				else
+				{
+					m_commandList->SetGraphicsRoot32BitConstants(2, 3, &scene.LightDirection, 0);
+				}
+
+
+
 				PixEndEventCustom();
 
 				PixBeginEventCustom(PIX_COLOR(0, 0, 255), "DrawIndexedInstance");
@@ -796,7 +818,7 @@ bool RenderingEngineD3D12::Render(Scene& scene)
 
 	ID3D12CommandList* commandLists[]{ m_commandList.Get() };
 
-	m_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+	m_commandQueue->ExecuteCommandLists(1, commandLists);
 
 	PROMPTFAILHR(hr, "Failed to close command list ");
 
@@ -870,7 +892,7 @@ bool RenderingEngineD3D12::CreateTextureResource(Texture& texture)
 		nullptr,
 		IID_PPV_ARGS(texture.GPUResource.GetAddressOf()));
 
-	PROMPTFAILHR(hr, "Failed to create committed resource for texture " + texture.Name + " default heap");
+	PROMPTFAILHR(hr, "Failed to create committed resource for texture " + std::to_string(texture.Type) + " default heap");
 
 	return true;
 }
@@ -927,7 +949,7 @@ bool RenderingEngineD3D12::UploadTexture(Texture& texture, bool useWriteToSubRes
 		//D3D12_BOX texBox = { 0, 0, 0, texture->Width, texture->Height, 1 };
 		hr = texture.GPUResource->WriteToSubresource(0, &texture.TexBox, texture.PixelData, texture.Width * texture.NumChannels, 1);
 
-		PROMPTFAILHR(hr, "Failed to write texture " + std::string(texture.Name) + " to subresource, ");
+		PROMPTFAILHR(hr, "Failed to write texture " + std::to_string(texture.Type) + " to subresource, ");
 	}
 	else
 	{
