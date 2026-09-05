@@ -3,8 +3,8 @@
 
 bool DefaultApplication::Init(Scene& scene)
 {
-	int numBalls = -1;
-	std::cout << "\nEnter number of objects to render: ";
+	int numBalls = 1500;// -1;
+	/*std::cout << "\nEnter number of objects to render: ";
 	std::cin >> numBalls;
 	std::cout << "\n";
 
@@ -12,7 +12,7 @@ bool DefaultApplication::Init(Scene& scene)
 	{
 		std::cout << "Invalid number of objects input, shutting down " << "\n";
 		return false;
-	}
+	}*/
 
 	const std::string roomBasePath{ "./models/simple_room/" };
 	const std::string objectBasePath{ "./models/tennis_ball/" };
@@ -23,7 +23,7 @@ bool DefaultApplication::Init(Scene& scene)
 	models.emplace_back(roomBasePath, "SimpleRoom");
 	models.emplace_back(objectBasePath, "TennisBall");
 
-	scene.LightDirection = { 0, -1, 1 };
+	scene.LightPosition = { 0, 25, 0 };
 
 	// Room
 	Transform roomModelInstanceTransform{};
@@ -60,7 +60,7 @@ bool DefaultApplication::Init(Scene& scene)
 
 bool DefaultApplication::Update(Scene& scene)
 {
-	constexpr float radiansPerSec = -0.001f;
+	constexpr float radiansPerSec = -0.002f;
 	constexpr float r = 28.0f;
 
 	float alpha = (PI - m_cameraRevolutionTheta) / 2.0f;
@@ -70,7 +70,7 @@ bool DefaultApplication::Update(Scene& scene)
 	constexpr float newY = 10.0f;
 	float newZ = hyp * cos(alpha) - 24;
 
-	constexpr float pitch = DirectX::XMConvertToRadians(0);// DirectX::XMConvertToRadians(45); // X rotation
+	constexpr float pitch = DirectX::XMConvertToRadians(15);// DirectX::XMConvertToRadians(45); // X rotation
 	const float yaw = m_cameraRevolutionTheta; // Y rotation
 	constexpr float roll = DirectX::XMConvertToRadians(0); // Z rotation
 

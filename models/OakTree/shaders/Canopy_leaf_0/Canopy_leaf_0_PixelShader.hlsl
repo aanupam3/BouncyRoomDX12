@@ -16,7 +16,7 @@ struct PS_OUTPUT
 //	t3: EMISSIVE,
 //	t4: METALLIC_ROUGHNESS,
 //	t5: PBR_BASE
-cbuffer lightDirectionContainer : register(b3)
+cbuffer lightsAndCameraContainer : register(b3)
 {
     float3 lightDirection;
 };

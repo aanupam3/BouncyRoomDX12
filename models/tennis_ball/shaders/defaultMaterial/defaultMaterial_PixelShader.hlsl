@@ -1,6 +1,7 @@
 struct PS_INPUT
 {
     float4 pos : SV_POSITION;
+    float3 worldPos : WORLDPOSITION;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float2 uv : TEXCOORD0;
@@ -16,10 +17,17 @@ struct PS_OUTPUT
 //	t3: EMISSIVE,
 //	t4: METALLIC_ROUGHNESS,
 //	t5: PBR_BASE
-cbuffer lightDirectionContainer : register(b3)
+struct LightsAndCamera
 {
-    float3 lightDirection;
+    float4 lightPosition;
+    float4 cameraPosition;
 };
+
+cbuffer lightsAndCameraContainer : register(b3)
+{
+    LightsAndCamera lightsAndCamera;
+};
+
 Texture2D normalMap : register(t1);
 Texture2D metallicaRoughnessMap : register(t4);
 Texture2D baseTexture : register(t5);
@@ -40,10 +48,22 @@ cbuffer colorFactorsContainer : register(b2)
 PS_OUTPUT main(PS_INPUT input)
 {
     PS_OUTPUT output;
-    //output.target = float4(1, 1, 1, 1);
+    float3 lightPos = lightsAndCamera.lightPosition;
+    float3 cameraPos = lightsAndCamera.cameraPosition;
+    float3 worldPos = input.worldPos;
     float4 baseColor = colorFactors.baseColorFactor * baseTexture.Sample(textureSampler, input.uv);
-    float3 netNormal = input.normal + normalMap.Sample(textureSampler, input.uv).xyz;
-    float4 colorWithLighting = mul(1 - (dot(normalize(lightDirection), normalize(netNormal))), baseColor);
-    output.target = colorWithLighting;
+    float4 unlitColor = 0.5*baseColor;
+   
+    //float3 netNormal = input.normal + normalMap.Sample(textureSampler, input.uv).xyz;
+    
+    float3 l_norm = normalize(lightPos - worldPos);
+    float3 n_norm = normalize(input.normal);
+    float3 r_norm = normalize(reflect(l_norm, n_norm));
+    float3 v_norm = normalize(cameraPos - worldPos);
+    
+    float diffuse = (dot(n_norm, l_norm));
+    float specular = 0; //pow((dot(r_norm, v_norm)), 8.0);
+
+    output.target = unlitColor + baseColor * diffuse + specular;
     return output;
 }

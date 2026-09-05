@@ -69,9 +69,9 @@ bool RenderingEngineD3D12::Init(Scene& scene)
 	// Uploading all resources for base models. These are shared by each model of a given model
 	Camera& camera = scene.GetCamera();
 	CHECK_FAIL(CreateBufferResource(camera.VPMatrixResource, ALIGN_256(MATRIX4X4_NUMELEMENTS * sizeof(float))), "Failed to create VP Matrix Resource");
-	CHECK_FAIL(UploadBuffer(camera.VPMatrixResource.Get(), reinterpret_cast<byte*> (camera.GetVPMatrixBuffer().data()), MATRIX4X4_NUMELEMENTS * sizeof(float)), "Failed to uplpoad camera VP buffer")
+	CHECK_FAIL(UploadBuffer(camera.VPMatrixResource.Get(), reinterpret_cast<byte*> (camera.GetVPMatrixBuffer().data()), MATRIX4X4_NUMELEMENTS * sizeof(float)), "Failed to uplpoad camera VP buffer");
 
-		std::vector<Model>& models = scene.GetModels();
+	std::vector<Model>& models = scene.GetModels();
 	for (Model& model : models)
 	{
 		const ModelBinData* modelBinData = model.GetBinData();
@@ -653,6 +653,15 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 	//std::vector<ID3D12DescriptorHeap*>* textureSRVDescriptorHeaps = new std::vector<ID3D12DescriptorHeap*>();
 	std::vector<Model>& models = scene.GetModels();
 
+	Camera& camera = scene.GetCamera();
+	constexpr int numLightCameraElements = 2;
+	DirectX::XMFLOAT4 sceneLightDirection{
+		scene.LightPosition.x, scene.LightPosition.y, scene.LightPosition.z, 0.0 };
+	DirectX::XMFLOAT3 cameraPos3 = camera.GetTransform().GetPosition();
+	DirectX::XMFLOAT4 cameraPosition{ cameraPos3.x, cameraPos3.y, cameraPos3.z, 0.0 };
+	// cbuffer elements need to be 16-byte address aligned (i.e., 128 bit aligned)
+	DirectX::XMFLOAT4 lightsAndCamera[numLightCameraElements] = { sceneLightDirection, cameraPosition };
+
 	for (Model& model : models)
 	{
 		std::vector<Mesh>& modelMeshes = model.GetMeshes();
@@ -680,24 +689,25 @@ bool RenderingEngineD3D12::UpdatePipeline(Scene& scene)
 
 				m_commandList->SetDescriptorHeaps(1, meshPrimitive.PrimitiveShaderVisibleDescriptorHeap.GetAddressOf());
 
+				int rootParamIndex = 0;
 				D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = meshPrimitive.PrimitiveShaderVisibleDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
-				m_commandList->SetGraphicsRootDescriptorTable(0, descriptorHandle);
+				m_commandList->SetGraphicsRootDescriptorTable(rootParamIndex, descriptorHandle);
+				rootParamIndex++;
 
 				descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV * 3; // since there are 3 CBVs
-				m_commandList->SetGraphicsRootDescriptorTable(1, descriptorHandle);
+				m_commandList->SetGraphicsRootDescriptorTable(rootParamIndex, descriptorHandle);
+				rootParamIndex++;
 
 				if (meshPrimitive.Textures.size() > 0)
 				{
 					descriptorHandle.ptr += DescriptorHandleIncrementSizeCBVSRVUAV;
-					m_commandList->SetGraphicsRootDescriptorTable(2, descriptorHandle);
-					m_commandList->SetGraphicsRoot32BitConstants(3, 3, &scene.LightDirection, 0);
-				}
-				else
-				{
-					m_commandList->SetGraphicsRoot32BitConstants(2, 3, &scene.LightDirection, 0);
+					m_commandList->SetGraphicsRootDescriptorTable(rootParamIndex, descriptorHandle);
+					rootParamIndex++;
 				}
 
 
+				m_commandList->SetGraphicsRoot32BitConstants(rootParamIndex, numLightCameraElements * 3, &lightsAndCamera, 0);
+				rootParamIndex++;
 
 				PixEndEventCustom();
 

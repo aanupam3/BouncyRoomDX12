@@ -15,19 +15,30 @@ Once loaded you should see the terminal and a separate render window. The termin
 # Recent Performance
 
 ### Latest Relevant Commit
-- **Max Balls Rendered at 60 FPS**: 9200  (down from previous due to increase in Scene complexity with lighting)
-- **Bottleneck**: CPU bound (Reason coming soon)
+- **Max Balls Rendered at 60 FPS**: 9562
+- **Bottleneck**: CPU bound (CPU cores not being utilized efficiently)
+- Commit ID: 
+- Commit Name: [SCENE] Basic Point Light + Normal transformations
+
+### Previous Relevant Commit
+- **Max Balls Rendered at 60 FPS**: 9200
+- **Bottleneck**: CPU bound (CPU cores not being utilized efficiently)
 - Commit ID: f0feff297b08f06cf76f0bbf5a972775ce01aa99
 - Commit Name: [SCENE] Basic Directional Lighting
 
-### Previous Relevant Commit
-- **Max Balls Rendered at 60 FPS**: 9625
-- **Bottleneck**: CPU bound (Reason coming soon)
-- Commit ID: 3a1a08d8ab95553e654f80b8911c319d0a91dada
-- Commit Name: [STRATEGY] Instancing Refactor
-
 # Current Metrics when Rendering Max Balls at 60fps
 ### Latest Relevant Commit
+- Number of objects: 9562
+- Total frames measured: 300
+- Median Draw Calls: 15
+- Median CPU Time: 17ms
+- P95 CPU Time: 17ms
+- P99 CPU Time: 18ms
+- Median GPU Time: 14ms
+- P95 GPU Time: 15ms
+- P99 GPU Time: 15ms
+
+### Previous Commit
 - Number of objects: 9200
 - Total frames measured: 300
 - Median Draw Calls: 15
@@ -39,22 +50,10 @@ Once loaded you should see the terminal and a separate render window. The termin
 - P99 GPU Time: 15ms
 - Memory: 480 MB RAM
 
-### Previous Commit
-- Number of objects: 9625
-- Total frames measured: 300
-- Median Draw Calls: 15
-- Median CPU Time: 16ms
-- P95 CPU Time: 17ms
-- P99 CPU Time: 18ms
-- Median GPU Time: 14ms
-- P95 GPU Time: 15ms
-- P99 GPU Time: 15ms
-- Memory: 460 MB RAM
-
 # Scene
 - **Resolution**: 1920 x 1080
 - **Camera**: Perspective, fixed path revolution
-- **Lights**: Directional, stationary
+- **Lights**: Point light, stationary
 - **Shadows**: NONE
 - **Physics**: NONE
 - **VSync**: OFF

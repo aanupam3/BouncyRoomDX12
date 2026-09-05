@@ -11,6 +11,7 @@ struct VS_INPUT
 struct VS_OUTPUT
 {
     float4 pos : SV_POSITION;
+    float3 worldPos : WORLDPOSITION;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float2 uv : TEXCOORD0;
@@ -42,10 +43,12 @@ VS_OUTPUT main(VS_INPUT input)
     float4x4 modelToWorldMatrix = mul(meshPrimitiveModelSpaceTransformBuffer, worldRootTransformForInstance);
     float4x4 wvp = mul(modelToWorldMatrix, vpMatrixBuffer);
     
-    output.pos = mul(float4(input.pos, 1.0f), wvp);
+    float4 worldPos = mul(float4(input.pos, 1.0f), modelToWorldMatrix);
+    output.pos = mul(worldPos, vpMatrixBuffer);
     output.uv = input.uv;
     output.uv1 = input.uv1;
-    output.normal = input.normal;
+    output.normal = normalize(mul(input.normal, (float3x3) modelToWorldMatrix));
     output.tangent = input.tangent;
+    output.worldPos = worldPos.xyz;
     return output;
 }

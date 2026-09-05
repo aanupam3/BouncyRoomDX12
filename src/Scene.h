@@ -36,7 +36,7 @@ public:
 	std::vector<Model>& GetModels() { return m_models; }
 
 
-	DirectX::XMFLOAT3 LightDirection{};
+	DirectX::XMFLOAT3 LightPosition{};
 	//ComPtr<ID3D12Resource> LightDirectionResource{};
 
 private:

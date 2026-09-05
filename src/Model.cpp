@@ -300,7 +300,7 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 	//  ...
 	// Descriptor Table 4:
 	//	b3: Light Direction (Constants)
-	rootParams.reserve(4); // 3 tables + 1 lightDirection constant
+	rootParams.reserve(4); // 3 tables + 1 lightDirectionAndCameraPosition constant
 
 	// ------------- Table 1: CBVs -----------------------------------------------
 	// First table contains both CBVs
@@ -406,17 +406,17 @@ bool Model::CreateRootSignature(MeshPrimitive& meshPrimitive, ComPtr<ID3D12Devic
 
 	// ---------------- Constants -----------------------------
 
-	D3D12_ROOT_CONSTANTS rootConstantsLightDirection{};
-	rootConstantsLightDirection.Num32BitValues = 3;
-	rootConstantsLightDirection.ShaderRegister = 3; //b3
-	rootConstantsLightDirection.RegisterSpace = 0;
+	D3D12_ROOT_CONSTANTS rootConstantsLightAndCamera{};
+	rootConstantsLightAndCamera.Num32BitValues = 8;
+	rootConstantsLightAndCamera.ShaderRegister = 3; //b3
+	rootConstantsLightAndCamera.RegisterSpace = 0;
 
-	D3D12_ROOT_PARAMETER rootParamLightDirection{};
-	rootParamLightDirection.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	rootParamLightDirection.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	rootParamLightDirection.Constants = rootConstantsLightDirection;
+	D3D12_ROOT_PARAMETER rootParamLightAndCamera{};
+	rootParamLightAndCamera.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	rootParamLightAndCamera.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParamLightAndCamera.Constants = rootConstantsLightAndCamera;
 
-	rootParams.emplace_back(rootParamLightDirection);
+	rootParams.emplace_back(rootParamLightAndCamera);
 
 
 	// ------------------ Static sampler --------------------------
