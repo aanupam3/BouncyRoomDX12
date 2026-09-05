@@ -17,7 +17,7 @@ Once loaded you should see the terminal and a separate render window. The termin
 ### Latest Relevant Commit
 - **Max Balls Rendered at 60 FPS**: 9562
 - **Bottleneck**: CPU bound (CPU cores not being utilized efficiently)
-- Commit ID: 
+- Commit ID: 837fbcc05ce456e48e9078bcef5941779be4ef64
 - Commit Name: [SCENE] Basic Point Light + Normal transformations
 
 ### Previous Relevant Commit

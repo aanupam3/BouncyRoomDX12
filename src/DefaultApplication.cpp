@@ -3,8 +3,8 @@
 
 bool DefaultApplication::Init(Scene& scene)
 {
-	int numBalls = 1500;// -1;
-	/*std::cout << "\nEnter number of objects to render: ";
+	int numBalls = -1; //1500
+	std::cout << "\nEnter number of objects to render: ";
 	std::cin >> numBalls;
 	std::cout << "\n";
 
@@ -12,7 +12,7 @@ bool DefaultApplication::Init(Scene& scene)
 	{
 		std::cout << "Invalid number of objects input, shutting down " << "\n";
 		return false;
-	}*/
+	}
 
 	const std::string roomBasePath{ "./models/simple_room/" };
 	const std::string objectBasePath{ "./models/tennis_ball/" };
