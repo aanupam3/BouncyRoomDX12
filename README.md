@@ -3,8 +3,8 @@ A low-level graphics + physics engine project with the goal of increasing the ma
 
 Note: All code is architected and written by hand, AI is referenced only for learning/clearing up concepts
 
-### Video/Screenshots
-Note that balls are currently stationary as a baseline  
+### GIF/Screenshots
+Note that balls are currently stationary. The GIF is not representative of the actual frame rate.
 ![GIF](docs/images/BouncyRoomRecording.gif)  
 
 ### Usage: 
